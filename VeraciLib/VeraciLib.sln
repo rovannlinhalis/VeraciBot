@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VeraciLib", "VeraciLib.csproj", "{C94E37ED-A713-40E0-A9AA-0F0B09FCE60D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestVeraciLib", "..\TestVeraciLib\TestVeraciLib.csproj", "{A90A7E9C-0CB1-423D-9EA2-A205A5B36D6A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C94E37ED-A713-40E0-A9AA-0F0B09FCE60D} = {C94E37ED-A713-40E0-A9AA-0F0B09FCE60D}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C94E37ED-A713-40E0-A9AA-0F0B09FCE60D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C94E37ED-A713-40E0-A9AA-0F0B09FCE60D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C94E37ED-A713-40E0-A9AA-0F0B09FCE60D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C94E37ED-A713-40E0-A9AA-0F0B09FCE60D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A90A7E9C-0CB1-423D-9EA2-A205A5B36D6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A90A7E9C-0CB1-423D-9EA2-A205A5B36D6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A90A7E9C-0CB1-423D-9EA2-A205A5B36D6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A90A7E9C-0CB1-423D-9EA2-A205A5B36D6A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F13E2E81-E7F1-439A-A289-0D31DE398A0F}
+	EndGlobalSection
+EndGlobal
