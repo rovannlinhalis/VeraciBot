@@ -13,4 +13,10 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy $(ProjectDir)appkeys.json $(OutDir)" />
+    <Exec Command="copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciBot/bin/$(ConfigurationName)/net9.0" />
+    <Exec Command="copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciApp/bin/$(ConfigurationName)/net9.0" />
+  </Target>
+
 </Project>
