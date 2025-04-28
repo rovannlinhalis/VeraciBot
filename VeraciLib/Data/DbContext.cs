@@ -1,20 +1,14 @@
-﻿
-namespace VeraciBot.Data;
-
-// Contexto do banco de dados
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using VeraciBot;
 
-public class VeraciDbContext : DbContext
+namespace VeraciBot.Data
 {
 
-    public DbSet<Tweet> Tweets{ get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    public class VeraciDbContext(DbContextOptions<VeraciDbContext> options) : IdentityDbContext<ApplicationUser>(options)
     {
-        
-        // String de conexão para seu SQL Server local
-        optionsBuilder.UseSqlServer(AppKeys.keys.dbConnection);
+
+        public DbSet<Tweet> Tweets { get; set; }
 
     }
 

@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using VeraciApp.Components;
 using VeraciApp.Components.Account;
-using VeraciApp.Data;
+using VeraciBot.Data;
 using MudBlazor.Services;
+using VeraciBot;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,13 +28,18 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<VeraciDbContext>(options => options.UseSqlServer(AppKeys.keys.dbConnection));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+// Pega o contexto para criação inicial
+var serviceProvider = builder.Services.BuildServiceProvider();
+var dbContext = serviceProvider.GetRequiredService<VeraciDbContext>();
+
+// Cria o banco e a tabela automaticamente se não existirem
+dbContext.Database.EnsureCreated();
+
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
-    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddEntityFrameworkStores<VeraciDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
 

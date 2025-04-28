@@ -43,9 +43,8 @@ namespace VeraciBot
 
             var services = new ServiceCollection();
 
-            services.AddDbContext<VeraciDbContext>();
-
-            var serviceProvider = services.BuildServiceProvider();
+            services.AddDbContext<VeraciDbContext>(options => options.UseSqlServer(AppKeys.keys.dbConnection));
+            var serviceProvider = services.BuildServiceProvider();            
             var dbContext = serviceProvider.GetRequiredService<VeraciDbContext>();
 
             // Cria o banco e a tabela automaticamente se não existirem

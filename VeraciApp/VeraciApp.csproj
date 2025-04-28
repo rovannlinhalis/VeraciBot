@@ -27,7 +27,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="wwwroot\base.css" />
+    <Resource Include="wwwroot\base.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
 	<None Include="wwwroot\veracibot.ico" />
   </ItemGroup>
 

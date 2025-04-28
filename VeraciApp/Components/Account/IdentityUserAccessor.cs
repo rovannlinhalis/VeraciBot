@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Identity;
-using VeraciApp.Data;
+using VeraciBot.Data;
 
 namespace VeraciApp.Components.Account
 {

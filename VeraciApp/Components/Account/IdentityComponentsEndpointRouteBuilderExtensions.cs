@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using VeraciApp.Components.Account.Pages;
 using VeraciApp.Components.Account.Pages.Manage;
-using VeraciApp.Data;
+using VeraciBot.Data;
 
 namespace Microsoft.AspNetCore.Routing
 {
