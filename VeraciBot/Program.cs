@@ -16,6 +16,7 @@ using Tweetinvi;
 using System.Text.Json;
 using System.Security.Authentication.ExtendedProtection;
 using Microsoft.Extensions.DependencyInjection;
+using VeraciBot.Data;
 
 
 namespace VeraciBot
@@ -24,23 +25,31 @@ namespace VeraciBot
     class Program
     {
 
-        private const string IMAGEM_CAMINHO = "img/resposta.jpg";
-        private const string MENSAGEM_RESPOSTA = "Teste de resposta";
+        static string[] resp = {
+            "Vá imediatamente para a cadeia, seu bolsonarista fazedor de fakenews. 17 anos de cadeia imediatamente!",
+            "Procure a carmen lucia para iniciar o curso de democracia relativa do tse e se prepara pra visita do Uber Black da PF",
+            "Ok, vou deixar passar essa só com 14 anos de cadeia, na próxima vai ser punido de verdade",
+            "Parabens por ser um gado muito obediente e só falar a verdade aprovada pelo sistema",
+            "Ahhrá... agora sim, tudo certo... ganhou TROFEU DEMOCRACIA RELATIVA do XANDÃO"
+        };
+
 
         static async Task Main(string[] args)
         {
 
-            Console.WriteLine("Starting VERACIBOT"); 
+            Console.WriteLine("Starting VERACIBOT");
 
             Console.WriteLine("Connecting VERACIBOT database");
 
             var services = new ServiceCollection();
 
-            services.AddDbContext<VeraciDb>(options =>
-                options.UseSqlServer(AppKeys.keys.dbConnection));
+            services.AddDbContext<VeraciDbContext>();
 
             var serviceProvider = services.BuildServiceProvider();
-            var dbContext = serviceProvider.GetRequiredService<VeraciDb>();
+            var dbContext = serviceProvider.GetRequiredService<VeraciDbContext>();
+
+            // Cria o banco e a tabela automaticamente se não existirem
+            dbContext.Database.EnsureCreated();
 
             Console.WriteLine("Starting VERACIBOT bot");
 
@@ -88,10 +97,47 @@ namespace VeraciBot
 
                         foreach (var tweet in tweets)
                         {
+
                             string tweetId = tweet["id"].ToString();
+
+                            var tweet_previo = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
+                            if (tweet_previo != null)
+                            {
+                                Console.WriteLine($"Tweet {tweetId} already processed.");
+                                continue;
+                            }
+
                             Console.WriteLine($"Responding tweet {tweetId}...");
 
-                            await PostReplyWithImageAsync(MENSAGEM_RESPOSTA, IMAGEM_CAMINHO, tweetId);
+                            var original = await GetRepliedTweetTextAndCheck(tweetId);
+                            if (original != null && original.AuthorId != AppKeys.keys.xUserId)
+                            {
+
+                                VeraciBot.Data.Tweet internat_tweet = new Data.Tweet()
+                                {
+                                    Id = tweetId,
+                                    Text = original.Text,
+                                    AuthorId = original.AuthorId,
+                                };
+
+                                dbContext.Tweets.Add(internat_tweet);
+                                dbContext.SaveChanges();
+
+                                string afirmacao = original.Text;
+
+                                int result = await AvaliarVeracidadeAsync(afirmacao);
+                                if (result != null)
+                                {
+
+                                    string imgem = "img/resp" + result + ".jpg";
+                                    string resposta = resp[result - 1];
+
+                                    await PostReplyWithImageAsync(resposta, imgem, tweetId);
+
+                                }
+
+                            }
+
                         }
 
                     }
@@ -104,10 +150,151 @@ namespace VeraciBot
 
                 }
 
-                Thread.Sleep(600000);
+                Thread.Sleep(60000);
 
             }
 
+        }
+
+        class TweetResult
+        {
+            public string TweetId { get; set; }
+            public string Text { get; set; }
+            public string AuthorId { get; set; }
+            public string AuthorName { get; set; }
+        }
+
+        static async Task<TweetResult> GetRepliedTweetTextAndCheck(string tweetId)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
+
+            string url = $"https://api.twitter.com/2/tweets/{tweetId}?tweet.fields=referenced_tweets";
+
+            var response = await httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Erro ao buscar o tweet: {response.StatusCode}");
+                return null;
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(jsonResponse);
+            var root = doc.RootElement.GetProperty("data");
+
+            if (root.TryGetProperty("referenced_tweets", out JsonElement referencedTweets))
+            {
+                foreach (var refTweet in referencedTweets.EnumerateArray())
+                {
+                    if (refTweet.GetProperty("type").GetString() == "replied_to")
+                    {
+                        string repliedToId = refTweet.GetProperty("id").GetString();
+                        return await GetTweetTextAndAuthor(repliedToId);
+                    }
+                }
+            }
+
+            return null; // Não está respondendo a outro tweet
+        }
+
+        static async Task<TweetResult> GetTweetTextAndAuthor(string tweetId)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
+
+            string url = $"https://api.twitter.com/2/tweets/{tweetId}?tweet.fields=text,author_id&user.fields=username,name";
+
+            var response = await httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Erro ao buscar o tweet original: {response.StatusCode}");
+                return null;
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(jsonResponse);
+            var root = doc.RootElement.GetProperty("data");
+
+            string text = root.GetProperty("text").GetString();
+            string authorId = root.GetProperty("author_id").GetString();
+            string authorTag = "";
+            string authorName = ""; 
+
+            if (root.TryGetProperty("includes", out JsonElement includes) &&
+                            includes.TryGetProperty("users", out JsonElement users))
+            {
+                foreach (var user in users.EnumerateArray())
+                {
+                    if (user.GetProperty("id").GetString() == authorId)
+                    {
+                        authorTag = user.GetProperty("username").GetString();
+                        authorName = user.GetProperty("name").GetString();
+                        break;
+                    }
+                }
+            }
+
+            return new TweetResult
+            {
+                TweetId = tweetId,
+                Text = text,
+                AuthorId = authorId,
+                AuthorName = authorName
+            };
+        }
+
+        static async Task<string> GetRepliedTweetText(string tweetId)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
+
+            string url = $"https://api.twitter.com/2/tweets/{tweetId}?tweet.fields=referenced_tweets";
+
+            var response = await httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Erro ao buscar o tweet: {response.StatusCode}");
+                return null;
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(jsonResponse);
+            var root = doc.RootElement.GetProperty("data");
+
+            if (root.TryGetProperty("referenced_tweets", out JsonElement referencedTweets))
+            {
+                foreach (var refTweet in referencedTweets.EnumerateArray())
+                {
+                    if (refTweet.GetProperty("type").GetString() == "replied_to")
+                    {
+                        string repliedToId = refTweet.GetProperty("id").GetString();
+                        return await GetTweetTextById(repliedToId);
+                    }
+                }
+            }
+
+            return null; // Não está respondendo a outro tweet
+        }
+
+        static async Task<string> GetTweetTextById(string tweetId)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
+
+            string url = $"https://api.twitter.com/2/tweets/{tweetId}?tweet.fields=text";
+
+            var response = await httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Erro ao buscar o tweet original: {response.StatusCode}");
+                return null;
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(jsonResponse);
+            var root = doc.RootElement.GetProperty("data");
+
+            return root.GetProperty("text").GetString();
         }
 
         static async Task PostReplyAsync(string message, string replyToTweetId)
@@ -314,6 +501,8 @@ namespace VeraciBot
                 .GetProperty("content")
                 .GetString()
                 .Trim();
+
+            resposta = resposta.Substring(0, 1); // Pega apenas o primeiro caractere da resposta
 
             // Tenta converter a resposta para número
             return int.TryParse(resposta, out int nota) ? nota : -1;
