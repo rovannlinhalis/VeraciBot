@@ -17,6 +17,7 @@ using System.Text.Json;
 using System.Security.Authentication.ExtendedProtection;
 using Microsoft.Extensions.DependencyInjection;
 using VeraciBot.Data;
+using System.Text.RegularExpressions;
 
 
 namespace VeraciBot
@@ -33,7 +34,8 @@ namespace VeraciBot
             "Ahhrá... agora sim, tudo certo... ganhou TROFEU DEMOCRACIA RELATIVA do XANDÃO"
         };
 
-
+        private const string USER_ID_PETER_ANCAPSU = "778933271354826752";
+        
         static async Task Main(string[] args)
         {
 
@@ -65,7 +67,7 @@ namespace VeraciBot
                     using var client = new HttpClient();
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
 
-                    string mentionsUrl = $"https://api.twitter.com/2/users/{AppKeys.keys.xUserId}/mentions?tweet.fields=author_id,created_at&start_time={startTime}";
+                    string mentionsUrl = $"https://api.twitter.com/2/users/{AppKeys.keys.xUserId}/mentions?tweet.fields=author_id,created_at,text&start_time={startTime}";
 
                     var response = await client.GetAsync(mentionsUrl);
                     string responseContent = await response.Content.ReadAsStringAsync();
@@ -98,6 +100,17 @@ namespace VeraciBot
                         {
 
                             string tweetId = tweet["id"].ToString();
+                            string tweetAuthorId = tweet["author_id"].ToString();
+                            string tweetText = tweet["text"].ToString();
+
+                            tweetText = RemoverReferencias(tweetText); // Remove referências de @   
+
+                            if (tweetAuthorId != USER_ID_PETER_ANCAPSU)
+                            {
+                                Console.WriteLine($"Tweet {tweetId} not authorized.");
+                                continue;
+
+                            }
 
                             var tweet_previo = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
                             if (tweet_previo != null)
@@ -112,28 +125,54 @@ namespace VeraciBot
                             if (original != null && original.AuthorId != AppKeys.keys.xUserId)
                             {
 
+                                string afirmacao = original.Text;
+
+                                int result = 0;
+
+                                if (tweetText != "")
+                                {
+
+                                    result = await AvaliarArgumentoAsync(afirmacao, tweetText);
+                                    if (result != null)
+                                    {
+
+                                        string imgem = "img/resp" + result + ".jpg";
+                                        string resposta = resp[result - 1];
+
+                                        await PostReplyWithImageAsync(resposta, imgem, tweetId);
+
+                                    }
+
+                                }
+                                else
+                                {
+
+                                    result = await AvaliarVeracidadeAsync(afirmacao);
+                                    if (result != null)
+                                    {
+
+                                        string imgem = "img/resp" + result + ".jpg";
+                                        string resposta = resp[result - 1];
+
+                                        await PostReplyWithImageAsync(resposta, imgem, tweetId);
+
+                                    }
+
+                                }
+
                                 VeraciBot.Data.Tweet internat_tweet = new Data.Tweet()
                                 {
                                     Id = tweetId,
-                                    Text = original.Text,
-                                    AuthorId = original.AuthorId,
+                                    OriginalText = original.Text,
+                                    ThreadId = original.TweetId,
+                                    Text = tweetText == ""? "Is false": tweetText,
+                                    AuthorId = tweetAuthorId,
+                                    OriginalAuthorId = original.AuthorId,   
+                                    Result = result
                                 };
 
                                 dbContext.Tweets.Add(internat_tweet);
                                 dbContext.SaveChanges();
-
-                                string afirmacao = original.Text;
-
-                                int result = await AvaliarVeracidadeAsync(afirmacao);
-                                if (result != null)
-                                {
-
-                                    string imgem = "img/resp" + result + ".jpg";
-                                    string resposta = resp[result - 1];
-
-                                    await PostReplyWithImageAsync(resposta, imgem, tweetId);
-
-                                }
 
                             }
 
@@ -153,6 +192,20 @@ namespace VeraciBot
 
             }
 
+        }
+
+        static string RemoverReferencias(string texto)
+        {
+            // Regex para encontrar @ seguido de letras, números e underscores
+            string padrao = @"@\w+";
+
+            // Substitui todas as ocorrências por string vazia
+            string resultado = Regex.Replace(texto, padrao, "").Trim();
+
+            // Opcional: remover múltiplos espaços que sobraram
+            resultado = Regex.Replace(resultado, @"\s{2,}", " ");
+
+            return resultado;
         }
 
         class TweetResult
@@ -473,11 +526,72 @@ namespace VeraciBot
 
             var requestBody = new
             {
-                model = "gpt-4",
+                model = "gpt-4o",
                 messages = new[]
                 {
                 new { role = "system", content = "Você é um verificador de fatos. Para cada afirmação recebida, responda apenas com um número de 1 a 5 representando o grau de veracidade:\n1 - completamente falso/impossível\n2 - provavelmente falso\n3 - incerto/sem dados suficientes\n4 - provavelmente verdadeiro\n5 - verdade factual." },
                 new { role = "user", content = afirmacao }
+            },
+                temperature = 0.2
+            };
+
+            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            var response = await client.PostAsync("https://api.openai.com/v1/chat/completions", content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Erro ao acessar a OpenAI API:");
+                Console.WriteLine(responseString);
+                return -1;
+            }
+
+            using var doc = JsonDocument.Parse(responseString);
+            string resposta = doc.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString()
+                .Trim();
+
+            resposta = resposta.Substring(0, 1); // Pega apenas o primeiro caractere da resposta
+
+            // Tenta converter a resposta para número
+            return int.TryParse(resposta, out int nota) ? nota : -1;
+
+        }
+
+
+        public static async Task<int> AvaliarArgumentoAsync(string afirmacao, string contraafirmacao)
+        {
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.openAIKey);
+
+            string prompt = $@"
+Considere as duas afirmações abaixo:
+
+Afirmação 1: ""{afirmacao}""
+Afirmação 2: ""{contraafirmacao}""
+
+Responda apenas com um número de 1 a 5 de acordo com a seguinte escala:
+
+1 - A segunda afirmação está 100% correta
+2 - A segunda afirmação está mais correta que a primeira
+3 - Ambas estão incorretas, ambas estão corretas, ou é impossível decidir
+4 - A primeira afirmação está mais correta que a segunda
+5 - A primeira afirmação está 100% correta
+
+Responda apenas com o número.
+";
+
+
+            var requestBody = new
+            {
+                model = "gpt-4o",
+                messages = new[]
+                {
+                new { role = "user", content = prompt }
             },
                 temperature = 0.2
             };
