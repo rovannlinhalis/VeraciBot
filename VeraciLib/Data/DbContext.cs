@@ -9,6 +9,8 @@ namespace VeraciBot.Data
     {
 
         public DbSet<Tweet> Tweets { get; set; }
+        public DbSet<TweetAuthor> TweetAuthors { get; set; }
+        public DbSet<Config> Configs { get; set; }
 
     }
 

@@ -18,6 +18,7 @@ using System.Security.Authentication.ExtendedProtection;
 using Microsoft.Extensions.DependencyInjection;
 using VeraciBot.Data;
 using System.Text.RegularExpressions;
+using Tweetinvi.Core.Extensions;
 
 
 namespace VeraciBot
@@ -35,13 +36,150 @@ namespace VeraciBot
         };
 
         private const string USER_ID_PETER_ANCAPSU = "778933271354826752";
-        
+
         static async Task Main(string[] args)
         {
 
             Console.WriteLine("Starting VERACIBOT");
 
-            Console.WriteLine("Connecting VERACIBOT database");
+            // Cria duas tarefas independentes
+            Task tarefa1 = ThreadCicloTwitterChatGpt();
+            Task tarefa2 = ThreadCicloPontuacao();
+
+            Console.WriteLine("As tarefas foram iniciadas...");
+
+            // Aguarda as duas tarefas terminarem
+            await Task.WhenAll(tarefa1, tarefa2);
+
+            Console.WriteLine("Programa finalizado.");
+
+        }
+
+        static async Task ThreadCicloPontuacao()
+        {
+
+            Console.WriteLine("PONT: Connecting VERACIBOT database");
+
+            var services = new ServiceCollection();
+
+            services.AddDbContext<VeraciDbContext>(options => options.UseSqlServer(AppKeys.keys.dbConnection));
+            var serviceProvider = services.BuildServiceProvider();
+            var dbContext = serviceProvider.GetRequiredService<VeraciDbContext>();
+
+            // Cria o banco e a tabela automaticamente se não existirem
+            dbContext.Database.EnsureCreated();
+
+            Console.WriteLine("PONT: Starting calculo de pontos");
+
+            Config lastCheck = await dbContext.Configs.FirstOrDefaultAsync(e => e.Id == "PONT_last_check");
+            if (lastCheck == null)
+            {
+                lastCheck = new Config()
+                {
+                    Id = "PONT_last_check",
+                    Value = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                };
+                dbContext.Configs.Add(lastCheck);
+                dbContext.SaveChanges();
+            }
+
+            DateTime startTime = DateTime.Parse(lastCheck.Value);
+
+            List<VeraciBot.Data.Tweet> tweets = dbContext.Tweets.Where(p => p.Date >= startTime).ToList();
+            
+            DateTime lastTime = startTime;
+
+            foreach (var tweet in tweets)
+            {
+
+                try
+                {
+
+                    lastTime = tweet.Date;
+
+                    string originalAuthorId = tweet.OriginalAuthorId;
+                    string authorId = tweet.AuthorId;
+
+                    TweetAuthor originalAuthor = await dbContext.TweetAuthors.FirstOrDefaultAsync(e => e.Id == originalAuthorId);
+                    TweetAuthor author = await dbContext.TweetAuthors.FirstOrDefaultAsync(e => e.Id == authorId);
+
+                    if (originalAuthor == null)
+                    {
+                        originalAuthor = new TweetAuthor()
+                        {
+                            Id = originalAuthorId,
+                            UserName = tweet.OriginalAuthorId,
+                            Value = 100
+                        };
+                        dbContext.TweetAuthors.Add(originalAuthor);
+                        dbContext.SaveChanges();
+                    }
+
+                    if (author == null)
+                    {
+                        author = new TweetAuthor()
+                        {
+                            Id = authorId,
+                            UserName = tweet.AuthorId,
+                            Value = 100
+                        };
+                        dbContext.TweetAuthors.Add(author);
+                        dbContext.SaveChanges();
+                    }
+
+                    switch (tweet.Result)
+                    {
+
+                        case 1:
+                            author.Value += 10;
+                            originalAuthor.Value -= 10;
+                            break;
+
+                        case 2:
+                            author.Value += 5;
+                            originalAuthor.Value -= 5;
+                            break;
+
+                        case 3:
+                            author.Value += 0;
+                            originalAuthor.Value -= 0;
+                            break;
+
+                        case 4:
+                            author.Value -= 5;
+                            originalAuthor.Value += 5;
+                            break;
+
+                        case 5:
+                            author.Value -= 10;
+                            originalAuthor.Value += 10;
+                            break;
+
+                    }
+
+                    dbContext.TweetAuthors.Update(author);
+                    dbContext.TweetAuthors.Update(originalAuthor);
+                    dbContext.SaveChanges();
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                }   
+                               
+
+            }
+
+            lastCheck.Value = lastTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+            dbContext.Configs.Update(lastCheck);    
+            dbContext.SaveChanges();
+
+        }
+
+        static async Task ThreadCicloTwitterChatGpt()
+        { 
+
+            Console.WriteLine("TWIT: Connecting VERACIBOT database");
 
             var services = new ServiceCollection();
 
@@ -52,11 +190,23 @@ namespace VeraciBot
             // Cria o banco e a tabela automaticamente se não existirem
             dbContext.Database.EnsureCreated();
 
-            Console.WriteLine("Starting VERACIBOT bot");
+            Console.WriteLine("TWIT: Starting VERACIBOT bot");
 
-            string startTime = DateTime.UtcNow.AddHours(-1).ToString("yyyy-MM-ddTHH:mm:ssZ");
+            Config lastCheck = await dbContext.Configs.FirstOrDefaultAsync(e => e.Id == "TWIT_last_check");
+            if (lastCheck == null)
+            {
+                lastCheck = new Config()
+                {
+                    Id = "TWIT_last_check",
+                    Value = DateTime.UtcNow.AddHours(-1).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                };
+                dbContext.Configs.Add(lastCheck);
+                dbContext.SaveChanges();
+            }
 
-            Console.WriteLine("Checking mentions to @veracibot since " + startTime);
+            string startTime = lastCheck.Value;  
+
+            Console.WriteLine("TWIT: Checking mentions to @veracibot since " + startTime);
 
             while (true)
             {
@@ -96,12 +246,17 @@ namespace VeraciBot
                         Console.WriteLine("Treating mentions since " + startTime);
                         startTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
+                        DateTime lastTime = DateTime.Parse(startTime);
+
                         foreach (var tweet in tweets)
                         {
 
                             string tweetId = tweet["id"].ToString();
                             string tweetAuthorId = tweet["author_id"].ToString();
                             string tweetText = tweet["text"].ToString();
+                            string tweetDate = tweet["created_at"].ToString();
+
+                            lastTime = DateTime.Parse(tweetDate);
 
                             tweetText = RemoverReferencias(tweetText); // Remove referências de @   
 
@@ -187,6 +342,10 @@ namespace VeraciBot
                     Console.WriteLine(ex.ToString());
 
                 }
+
+                //lastCheck.Value = lastTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                //dbContext.Configs.Update(lastCheck);
+                //dbContext.SaveChanges();
 
                 Thread.Sleep(60000);
 
