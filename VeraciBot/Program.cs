@@ -184,48 +184,41 @@ namespace VeraciBot
                                 {
 
                                     result = await OpenAIAPI.AvaliarArgumentoAsync(afirmacao, tweetText);
-                                    if (result != null)
-                                    {
-
-                                        string imgem = "img/resp" + result + ".jpg";
-                                        string resposta = resp[result - 1];
-
-                                        await TwitterAPI.PostReplyWithImageAsync(resposta, imgem, tweetId);
-
-                                    }
-
+                                    
                                 }
                                 else
                                 {
 
                                     result = await OpenAIAPI.AvaliarVeracidadeAsync(afirmacao);
-                                    if (result != null)
-                                    {
-
-                                        string imgem = "img/resp" + result + ".jpg";
-                                        string resposta = resp[result - 1];
-
-                                        await TwitterAPI.PostReplyWithImageAsync(resposta, imgem, tweetId);
-
-                                    }
-
+                                    
                                 }
 
-                                VeraciBot.Data.Tweet internat_tweet = new Data.Tweet()
+                                if (result >= 1 && result <= 5)
                                 {
-                                    Id = tweetId,
-                                    OriginalText = original.Text,
-                                    ThreadId = original.TweetId,
-                                    Text = tweetText == ""? "Is false": tweetText,
-                                    AuthorId = tweetAuthorId,
-                                    OriginalAuthorId = original.AuthorId,   
-                                    Result = result
-                                };
 
-                                internat_tweet.ComputeAuthors(dbContext).Wait();
 
-                                dbContext.Tweets.Add(internat_tweet);
-                                dbContext.SaveChanges();
+                                    VeraciBot.Data.Tweet internat_tweet = new Data.Tweet()
+                                    {
+                                        Id = tweetId,
+                                        OriginalText = original.Text,
+                                        ThreadId = original.TweetId,
+                                        Text = tweetText == "" ? "Is false" : tweetText,
+                                        AuthorId = tweetAuthorId,
+                                        OriginalAuthorId = original.AuthorId,
+                                        Result = result
+                                    };
+
+                                    internat_tweet.ComputeAuthors(dbContext).Wait();
+
+                                    dbContext.Tweets.Add(internat_tweet);
+                                    dbContext.SaveChanges();
+
+                                    string imgem = "img/resp" + result + ".jpg";
+                                    string resposta = resp[result - 1];
+
+                                    await TwitterAPI.PostReplyWithImageAsync(resposta, imgem, tweetId);
+
+                                }
 
                             }
 
