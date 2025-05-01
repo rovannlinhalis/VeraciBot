@@ -107,105 +107,246 @@ namespace VeraciBot
 
         }
 
-        public static string RemoverReferencias(string texto)
+        public static string RemoveReferences(string text)
         {
+
             // Regex para encontrar @ seguido de letras, números e underscores
-            string padrao = @"@\w+";
+            string standard = @"@\w+";
 
             // Substitui todas as ocorrências por string vazia
-            string resultado = Regex.Replace(texto, padrao, "").Trim();
+            string result = Regex.Replace(text, standard, "").Trim();
 
             // Opcional: remover múltiplos espaços que sobraram
-            resultado = Regex.Replace(resultado, @"\s{2,}", " ");
+            result = Regex.Replace(result, @"\s{2,}", " ");
 
-            return resultado;
+            return result.Trim();
+
         }
 
-        public class TweetResult
+        /// <summary>
+        /// Descreve toda uma thread
+        /// </summary>
+        public class ThreadContext
         {
-            public string TweetId { get; set; }
-            public string Text { get; set; }
-            public string AuthorId { get; set; }
-            public string AuthorName { get; set; }
-        }
+            
+            public string Id { get; set; } = string.Empty;    // Id do primeiro tweet da thread será usado para identificar a thread
 
-        public static async Task<TweetResult> GetRepliedTweetTextAndCheck(string tweetId)
-        {
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
+            public string AuthorA { get; set; } = string.Empty;   // Id do autor da thread (primeiro usuário da thread que será o usuário A)
+            
+            public string AuthorB { get; set; } = string.Empty;   // Id de quem responde a thread (segundo usuário da thread que será o usuário B)
+            
+            public List<TweetContext> Tweets { get; set; } = new List<TweetContext>(); // Lista de tweets da thread
 
-            string url = $"https://api.twitter.com/2/tweets/{tweetId}?tweet.fields=referenced_tweets";
-
-            var response = await httpClient.GetAsync(url);
-            if (!response.IsSuccessStatusCode)
+            /// <summary>
+            /// Pega a descrição da thread
+            /// </summary>
+            /// <returns></returns>
+            public string GetFullDialog()
             {
-                Console.WriteLine($"Erro ao buscar o tweet: {response.StatusCode}");
-                return null;
-            }
 
-            var jsonResponse = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(jsonResponse);
-            var root = doc.RootElement.GetProperty("data");
-
-            if (root.TryGetProperty("referenced_tweets", out JsonElement referencedTweets))
-            {
-                foreach (var refTweet in referencedTweets.EnumerateArray())
+                string description = "";
+                foreach (var tweet in Tweets)
                 {
-                    if (refTweet.GetProperty("type").GetString() == "replied_to")
-                    {
-                        string repliedToId = refTweet.GetProperty("id").GetString();
-                        return await GetTweetTextAndAuthor(repliedToId);
-                    }
+                    description += $"{tweet.AuthorUsername}: {tweet.Text}\n";
                 }
+
+                return description;
             }
 
-            return null; // Não está respondendo a outro tweet
-        }
-
-        public static async Task<TweetResult> GetTweetTextAndAuthor(string tweetId)
-        {
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
-
-            string url = $"https://api.twitter.com/2/tweets/{tweetId}?tweet.fields=text,author_id&user.fields=username,name";
-
-            var response = await httpClient.GetAsync(url);
-            if (!response.IsSuccessStatusCode)
+            /// <summary>
+            /// Pega inicio da thread para author a
+            /// </summary>
+            /// <returns></returns>
+            public string GetStartA()
             {
-                Console.WriteLine($"Erro ao buscar o tweet original: {response.StatusCode}");
-                return null;
-            }
 
-            var jsonResponse = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(jsonResponse);
-            var root = doc.RootElement.GetProperty("data");
-
-            string text = root.GetProperty("text").GetString();
-            string authorId = root.GetProperty("author_id").GetString();
-            string authorTag = "";
-            string authorName = "";
-
-            if (root.TryGetProperty("includes", out JsonElement includes) &&
-                            includes.TryGetProperty("users", out JsonElement users))
-            {
-                foreach (var user in users.EnumerateArray())
+                string description = "";
+                foreach (var tweet in Tweets)
                 {
-                    if (user.GetProperty("id").GetString() == authorId)
+
+                    if (tweet.AuthorId == AuthorA && tweet.Text != "")
                     {
-                        authorTag = user.GetProperty("username").GetString();
-                        authorName = user.GetProperty("name").GetString();
+                        description = tweet.Text;
                         break;
                     }
+
                 }
+
+                return description;
             }
 
-            return new TweetResult
+            /// <summary>
+            /// Pega inicio da thread para author b
+            /// </summary>
+            /// <returns></returns>
+            public string GetStartB()
             {
-                TweetId = tweetId,
-                Text = text,
-                AuthorId = authorId,
-                AuthorName = authorName
-            };
+
+                string description = "";
+                foreach (var tweet in Tweets)
+                {
+
+                    if (tweet.AuthorId == AuthorB && tweet.Text != "")
+                    {
+                        description = tweet.Text;
+                        break;
+                    }
+
+                }
+
+                return description;
+            }
+
+        }
+
+        /// <summary>
+        /// Pega a thread de um tweet
+        /// </summary>
+        /// <param name="tweetId"></param>
+        /// <param name="authorId"></param>
+        /// <returns></returns>
+        public static async Task<ThreadContext> GetThreadContext(string tweetId, string authorId)
+        {
+
+            TweetContext tw = await GetTweetContext(tweetId);
+            if (tw == null)
+            {
+                Console.WriteLine("Erro ao buscar o tweet.");
+                return null;
+            }
+
+            if (tw.RepliedToId == "")
+            {
+
+                // Se não é resposta a ninguém, então é o primeiro tweet da thread  
+
+                return new ThreadContext
+                {
+                    Id = tweetId,
+                    AuthorA = tw.AuthorId,
+                    AuthorB = authorId,
+                    Tweets = new List<TweetContext> { tw }
+                };
+                
+            }
+            else 
+            {
+
+                // Pega a thread que vem antes até aqui
+
+                ThreadContext tc = await GetThreadContext(tw.RepliedToId, authorId);
+                if (tc == null)
+                {
+                    Console.WriteLine("Erro ao buscar a thread.");
+                    return null;
+                }   
+
+                if (tw.AuthorId == tc.AuthorA || tw.AuthorId == tc.AuthorB)
+                {
+                    // Se o autor do tweet atual é o mesmo que o autor da thread ou o author da chamada, então adiciona o tweet atual à thread (outros autores são ignorados na thread)
+                    tc.Tweets.Add(tw);
+                }
+
+                return tc; // Retorna a thread atualizada
+
+            }
+
+        }
+
+        /// <summary>
+        /// Descreve um tweet específico
+        /// </summary>
+        public class TweetContext
+        {
+            public string Id { get; set; } = string.Empty;  // Id do tweet
+            public string AuthorId { get; set; } = string.Empty; //Id do autor do tweet 
+            public string AuthorName { get; set; } = string.Empty; // Nome do author do tweet
+            public string AuthorUsername { get; set; } = string.Empty; // Nome de usuário do author do tweet (@)
+            public string Text { get; set; } = string.Empty; // Texto do tweet
+            public string CreatedAt { get; set; } = string.Empty; // Data da criação    
+            public string RepliedToId { get; set; } = string.Empty;  // É resposta a tweet
+        }
+
+        /// <summary>
+        /// Pega infos de um tweet específico
+        /// </summary>
+        /// <param name="tweetId"></param>
+        /// <returns></returns>
+        public static async Task<TweetContext> GetTweetContext(string tweetId)
+        {
+
+            try
+            {
+
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
+
+                string url = $"https://api.twitter.com/2/tweets/{tweetId}?tweet.fields=text,author_id,created_at,referenced_tweets&user.fields=username,name";
+
+                var response = await httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Erro ao buscar o tweet original: {response.StatusCode}");
+                    return null;
+                }
+
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(jsonResponse);
+                var root = doc.RootElement.GetProperty("data");
+
+                string text = RemoveReferences(root.GetProperty("text").GetString());
+                string authorId = root.GetProperty("author_id").GetString();
+                string createdAt = root.GetProperty("created_at").GetString();
+                string authorName = "";
+                string authorUsername = "";
+                string repliedToId = "";
+
+                if (root.TryGetProperty("includes", out JsonElement includes) &&
+                                includes.TryGetProperty("users", out JsonElement users))
+                {
+                    foreach (var user in users.EnumerateArray())
+                    {
+                        if (user.GetProperty("id").GetString() == authorId)
+                        {
+                            authorUsername = user.GetProperty("username").GetString();
+                            authorName = user.GetProperty("name").GetString();
+                            break;
+                        }
+                    }
+                }
+
+                if (root.TryGetProperty("referenced_tweets", out JsonElement referencedTweets))
+                {
+                    foreach (var refTweet in referencedTweets.EnumerateArray())
+                    {
+                        if (refTweet.GetProperty("type").GetString() == "replied_to")
+                        {
+                            repliedToId = refTweet.GetProperty("id").GetString();
+                            break;
+                        }
+                    }
+                }
+
+                // Aqui tenho todas as informações de um tweet
+
+                return new TweetContext
+                {
+                    Id = tweetId,
+                    Text = text,
+                    AuthorId = authorId,
+                    AuthorName = authorName,
+                    AuthorUsername = authorUsername,
+                    CreatedAt = createdAt,
+                    RepliedToId = repliedToId
+                };
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao processar o tweet: {ex.Message}");
+                return null;
+            }
+
         }
 
         public static async Task<string> GetRepliedTweetText(string tweetId)

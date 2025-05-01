@@ -29,6 +29,17 @@ namespace VeraciBot.Data
         public int Value { get; set; } = 100;
 
         /// <summary>
+        /// Descrição do autor
+        /// </summary>
+        /// <returns></returns>
+        public string GetDescription()
+        {
+
+            return $"{Name} (@{UserName}) : {Value}";
+
+        }
+
+        /// <summary>
         /// Retorna o autor do tweet
         /// </summary>
         /// <param name="id"></param>
@@ -39,6 +50,7 @@ namespace VeraciBot.Data
 
             if (author == null)
             {
+                
                 author = new TweetAuthor()
                 {
                     Id = id,
@@ -46,8 +58,34 @@ namespace VeraciBot.Data
                     Name = name,
                     Value = 100
                 };
+
                 dbContext.TweetAuthors.Add(author);
                 dbContext.SaveChanges();
+
+            } 
+            else
+            {
+
+                bool changed = false;
+
+                if (username != "" && author.UserName != username)
+                {
+                    author.UserName = username;
+                    changed = true;
+                }
+
+                if (name != "" && author.Name != name)
+                {
+                    author.Name = name;
+                    changed = true; 
+                }
+
+                if (changed)
+                {
+                    dbContext.TweetAuthors.Update(author);
+                    dbContext.SaveChanges();    
+                }
+
             }
 
             return author;

@@ -26,61 +26,15 @@ namespace VeraciBot
 
             Console.WriteLine("Starting VERACIBOT");
 
-            // Cria duas tarefas independentes
+            // Cria a tarefa e espera ela
             Task tarefa1 = ThreadCicloTwitterChatGpt();
-            Task tarefa2 = ThreadCicloPontuacao();
-
+            
             Console.WriteLine("As tarefas foram iniciadas...");
 
             // Aguarda as duas tarefas terminarem
-            await Task.WhenAll(tarefa1, tarefa2);
+            await Task.WhenAll(tarefa1);
 
             Console.WriteLine("Programa finalizado.");
-
-        }
-
-        static async Task ThreadCicloPontuacao()
-        {
-
-            Console.WriteLine("PONT: Connecting VERACIBOT database");
-
-            var services = new ServiceCollection();
-
-            services.AddDbContext<VeraciDbContext>(options => options.UseSqlServer(AppKeys.keys.dbConnection));
-            var serviceProvider = services.BuildServiceProvider();
-            var dbContext = serviceProvider.GetRequiredService<VeraciDbContext>();
-
-            // Cria o banco e a tabela automaticamente se não existirem
-            dbContext.Database.EnsureCreated();
-
-            Console.WriteLine("PONT: Starting calculo de pontos");
-
-            List<VeraciBot.Data.TweetAuthor> tweetAuthors = dbContext.TweetAuthors.Where(p => p.UserName == "").ToList();
-
-            foreach (var authors in tweetAuthors)
-            {
-
-                try
-                {
-
-                    if (authors.UserName == "")
-                    {
-                        string name = await TwitterAPI.GetUsernameById(authors.Id);
-                        if (name != null)
-                        {
-                            authors.UserName = name;
-                            dbContext.TweetAuthors.Update(authors);
-                            dbContext.SaveChanges();
-                        }
-                    }   
-
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.ToString());
-                }
-
-            }
 
         }
 
@@ -148,87 +102,155 @@ namespace VeraciBot
                         {
 
                             string tweetId = tweet["id"].ToString();
-                            string tweetAuthorId = tweet["author_id"].ToString();
-                            string tweetText = tweet["text"].ToString();
+                            string authorId = tweet["author_id"].ToString();
+
+                            if (authorId == AppKeys.keys.xUserId)
+                            {
+                                Console.WriteLine($"Tweet {tweetId} is from the bot itself.");
+                                continue;
+                            }   
+                                                        
                             string tweetDate = tweet["created_at"].ToString();
 
                             lastTime = DateTime.Parse(tweetDate);
                             DbConfig.SetLastDateTimeForTwitterCheck(dbContext, lastTime).Wait();
 
-                            tweetText = TwitterAPI.RemoverReferencias(tweetText); // Remove referências de @   
-
-                            if (tweetAuthorId != USER_ID_PETER_ANCAPSU)
+                            if (authorId != USER_ID_PETER_ANCAPSU)
                             {
                                 Console.WriteLine($"Tweet {tweetId} not authorized.");
                                 continue;
 
                             }
 
-                            var tweet_previo = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
-                            if (tweet_previo != null)
+                            var previousTweet = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
+                            if (previousTweet != null)
                             {
                                 Console.WriteLine($"Tweet {tweetId} already processed.");
                                 continue;
                             }
 
-                            Console.WriteLine($"Responding tweet {tweetId}...");
+                            Console.WriteLine($"Getting full thread {tweetId}...");
 
-                            var original = await TwitterAPI.GetRepliedTweetTextAndCheck(tweetId);
-                            if (original != null && original.AuthorId != AppKeys.keys.xUserId)
+                            TwitterAPI.ThreadContext fullThread = await TwitterAPI.GetThreadContext(tweetId, authorId);
+                            if (fullThread != null && fullThread.AuthorA != AppKeys.keys.xUserId)
                             {
 
-                                string afirmacao = original.Text;
+                                // Se for só um tweet, não precisa de thread, só fale a resposta    
 
-                                int result = 0;
-
-                                if (tweetText != "")
+                                if (fullThread.Tweets.Count == 1)
                                 {
 
-                                    result = await OpenAIAPI.AvaliarArgumentoAsync(afirmacao, tweetText);
-                                    
-                                }
-                                else
-                                {
+                                    Console.WriteLine($"Tweet {tweetId} is a single tweet.");
 
-                                    result = await OpenAIAPI.AvaliarVeracidadeAsync(afirmacao);
-                                    
-                                }
-
-                                if (result >= 1 && result <= 5)
-                                {
-
-
-                                    VeraciBot.Data.Tweet internat_tweet = new Data.Tweet()
+                                    VeraciBot.Data.Tweet helpTweet = new Data.Tweet()
                                     {
                                         Id = tweetId,
-                                        OriginalText = original.Text,
-                                        ThreadId = original.TweetId,
-                                        Text = tweetText == "" ? "Is false" : tweetText,
-                                        AuthorId = tweetAuthorId,
-                                        OriginalAuthorId = original.AuthorId,
-                                        Result = result
+                                        OriginalText = "",
+                                        ThreadId = fullThread.Id,
+                                        Text = "",
+                                        AuthorId = authorId,
+                                        OriginalAuthorId = fullThread.AuthorA,
+                                        Result = 0
                                     };
 
-                                    internat_tweet.ComputeAuthors(dbContext).Wait();
-
-                                    dbContext.Tweets.Add(internat_tweet);
+                                    dbContext.Tweets.Add(helpTweet);
                                     dbContext.SaveChanges();
 
-                                    string imgem = "img/resp" + result + ".jpg";
-                                    string resposta = resp[result - 1];
+                                    string helpImage = "img/logo.jpg";
+                                    string helpResponse = "Esse é o VERACIBOT, seu robô para verificação de fatos aprovado pelo Ministério da Verdade. Para saber mais detalhes sobre o projeto consulte https://veraci.bot";
 
-                                    string authorOriginal = await TwitterAPI.GetUsernameById(original.AuthorId);
-                                    string author = await TwitterAPI.GetUsernameById(tweetAuthorId);
+                                    TwitterAPI.TwitterUser author = await TwitterAPI.GetTwitterUserById(authorId);
+                                    TweetAuthor authorTweet = await TweetAuthor.GetTweetAuthor(dbContext, authorId, author.Username, author.Name);
 
-                                    TweetAuthor authorTweet = await TweetAuthor.GetTweetAuthor(dbContext, tweetAuthorId);
-                                    TweetAuthor authorOriginalTweet = await TweetAuthor.GetTweetAuthor(dbContext, original.AuthorId);   
+                                    helpResponse = helpResponse + "\n\n" + authorTweet.GetDescription();
 
-                                    resposta = "@" + authorOriginal + ": " + resposta + "\n\n" + authorOriginal + ": " + authorOriginalTweet.Value + "\n" + 
-                                        author + ": " + authorTweet.Value;
+                                    await TwitterAPI.PostReplyWithImageAsync(helpResponse, helpImage, tweetId);
 
-                                    await TwitterAPI.PostReplyWithImageAsync(resposta, imgem, tweetId);
+                                    continue;
 
                                 }
+
+                                // Não responder a mesma thread
+
+                                var previousThread = await dbContext.Tweets.FirstOrDefaultAsync(e => e.ThreadId == fullThread.Id);
+                                if (previousThread != null)
+                                {
+                                    Console.WriteLine($"Thread {tweetId} already processed.");
+                                    continue;
+                                }
+
+                                // Checa se tem crédito
+
+                                TwitterAPI.TwitterUser userAuthorA = await TwitterAPI.GetTwitterUserById(fullThread.AuthorA);
+                                TwitterAPI.TwitterUser userAuthorB = await TwitterAPI.GetTwitterUserById(fullThread.AuthorB);
+
+                                TweetAuthor authorA = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorA, userAuthorA.Username, userAuthorA.Name);
+                                TweetAuthor authorB = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorB, userAuthorB.Username, userAuthorB.Name);
+
+                                if (authorB.Value <= 0)
+                                {
+
+                                    Console.WriteLine($"Author {authorB.UserName} do not have credit.");
+
+                                    VeraciBot.Data.Tweet notTweet = new Data.Tweet()
+                                    {
+                                        Id = tweetId,
+                                        OriginalText = "",
+                                        ThreadId = fullThread.Id,
+                                        Text = "",
+                                        AuthorId = authorId,
+                                        OriginalAuthorId = fullThread.AuthorA,
+                                        Result = 0
+                                    };
+
+                                    dbContext.Tweets.Add(notTweet);
+                                    dbContext.SaveChanges();
+
+                                    string notImgem = "img/nao.jpg";
+                                    string notResponse = "Você não tem crédito para usar o VERACIBOT, precisa se comportar melhor! sinto muito!";
+
+                                    notResponse = notResponse + "\n\n" + authorB.GetDescription();
+
+                                    await TwitterAPI.PostReplyWithImageAsync(notResponse, notImgem, tweetId);
+
+                                    continue;
+
+                                }
+
+                                // Chama o CHAT GPT
+
+                                OpenAIAPI.FullEvaluation result = await OpenAIAPI.CheckThread(fullThread);
+                                if (result == null)
+                                {
+                                    Console.WriteLine($"Thread {fullThread.Id} failed to check.");
+                                    continue;
+                                }
+
+                                // Prepara a resposta
+
+                                VeraciBot.Data.Tweet fullResponseTweet = new Data.Tweet()
+                                {
+                                    Id = tweetId,
+                                    ThreadId = fullThread.Id,
+                                    Text = fullThread.GetStartB(),
+                                    OriginalText = fullThread.GetStartA(),
+                                    AuthorId = fullThread.AuthorB,
+                                    OriginalAuthorId = fullThread.AuthorA,
+                                    Date = DateTime.UtcNow,
+                                    Result = result.Result
+                                };
+
+                                fullResponseTweet.ComputeAuthors(dbContext).Wait();
+
+                                dbContext.Tweets.Add(fullResponseTweet);
+                                dbContext.SaveChanges();
+
+                                string fullResponseImage = "img/resp" + result + ".jpg";
+                                string fullResponseText = result.Response;
+
+                                fullResponseText = "@" + authorA.UserName + ": " + fullResponseText + "\n\n" + authorA.GetDescription() + "\n" + authorB.GetDescription();
+
+                                await TwitterAPI.PostReplyWithImageAsync(fullResponseText, fullResponseImage, tweetId);
 
                             }
 
