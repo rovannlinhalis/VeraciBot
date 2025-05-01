@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using VeraciBot;
 
 namespace VeraciBot.Data
 {
@@ -9,6 +8,8 @@ namespace VeraciBot.Data
     {
 
         public DbSet<Tweet> Tweets { get; set; }
+        public DbSet<TweetAuthor> TweetAuthors { get; set; }
+        public DbSet<Config> Configs { get; set; }
 
     }
 
