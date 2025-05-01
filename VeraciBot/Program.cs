@@ -153,6 +153,7 @@ namespace VeraciBot
                             string tweetDate = tweet["created_at"].ToString();
 
                             lastTime = DateTime.Parse(tweetDate);
+                            DbConfig.SetLastDateTimeForTwitterCheck(dbContext, lastTime).Wait();
 
                             tweetText = TwitterAPI.RemoverReferencias(tweetText); // Remove referências de @   
 
@@ -216,6 +217,15 @@ namespace VeraciBot
                                     string imgem = "img/resp" + result + ".jpg";
                                     string resposta = resp[result - 1];
 
+                                    string authorOriginal = await TwitterAPI.GetUsernameById(original.AuthorId);
+                                    string author = await TwitterAPI.GetUsernameById(tweetAuthorId);
+
+                                    TweetAuthor authorTweet = await TweetAuthor.GetTweetAuthor(dbContext, tweetAuthorId);
+                                    TweetAuthor authorOriginalTweet = await TweetAuthor.GetTweetAuthor(dbContext, original.AuthorId);   
+
+                                    resposta = "@" + authorOriginal + ": " + resposta + "\n\n" + authorOriginal + ": " + authorOriginalTweet.Value + "\n" + 
+                                        author + ": " + authorTweet.Value;
+
                                     await TwitterAPI.PostReplyWithImageAsync(resposta, imgem, tweetId);
 
                                 }
@@ -233,10 +243,6 @@ namespace VeraciBot
                     Console.WriteLine(ex.ToString());
 
                 }
-
-                //lastCheck.Value = lastTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                //dbContext.Configs.Update(lastCheck);
-                //dbContext.SaveChanges();
 
                 Thread.Sleep(60000);
 
