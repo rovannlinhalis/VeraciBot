@@ -9,7 +9,7 @@ using VeraciBot.Data;
 
 #nullable disable
 
-namespace VeraciLib.Migrations
+namespace VeraciBot.Migrations
 {
     [DbContext(typeof(VeraciDbContext))]
     [Migration("20250429023039_ConfigTable")]
