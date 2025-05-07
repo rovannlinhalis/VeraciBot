@@ -187,6 +187,9 @@ namespace VeraciBot
                                 TweetAuthor authorA = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorA, userAuthorA.Username, userAuthorA.Name);
                                 TweetAuthor authorB = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorB, userAuthorB.Username, userAuthorB.Name);
 
+                                fullThread.AuthorA = authorA.UserName;  
+                                fullThread.AuthorB = authorB.UserName;  
+
                                 if (authorB.Value <= 0)
                                 {
 
@@ -245,7 +248,7 @@ namespace VeraciBot
                                 dbContext.Tweets.Add(fullResponseTweet);
                                 dbContext.SaveChanges();
 
-                                string fullResponseImage = "img/resp" + result + ".jpg";
+                                string fullResponseImage = "img/resp" + result.Result + ".jpg";
                                 string fullResponseText = result.Response;
 
                                 fullResponseText = "@" + authorA.UserName + ": " + fullResponseText + "\n\n" + authorA.GetDescription() + "\n" + authorB.GetDescription();
