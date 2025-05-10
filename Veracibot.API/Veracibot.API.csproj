@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -14,19 +14,67 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" Version="9.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="NJsonSchema" Version="11.3.2" />
     <PackageReference Include="OpenAI-DotNet" Version="8.6.4" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" />
     <PackageReference Include="TweetinviAPI" Version="5.0.4" />
+	  <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="wwwroot\Images\01.jpg" />
+    <None Include="wwwroot\Images\02.jpg" />
+    <None Include="wwwroot\Images\03.jpg" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 24, 2025, 11_19_36 AM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 24, 2025, 11_44_49 AM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 24, 2025, 11_45_31 AM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 8, 2025, 05_42_54 PM %281%29.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 8, 2025, 05_42_54 PM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 8, 2025, 06_00_33 PM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 8, 2025, 06_51_32 PM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 8, 2025, 06_53_18 PM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 8, 2025, 06_53_37 PM.png" />
+    <None Include="wwwroot\Images\ChatGPT Image Apr 8, 2025, 06_54_57 PM.png" />
+    <None Include="wwwroot\Images\choro.jpg" />
+    <None Include="wwwroot\Images\duvida.jpg" />
+    <None Include="wwwroot\Images\fala.jpg" />
+    <None Include="wwwroot\Images\favicon.png" />
+    <None Include="wwwroot\Images\grito.jpg" />
+    <None Include="wwwroot\Images\home01.jpg" />
+    <None Include="wwwroot\Images\home01.psd" />
+    <None Include="wwwroot\Images\home01c.jpg" />
+    <None Include="wwwroot\Images\home01c.psd" />
+    <None Include="wwwroot\Images\home02.jpg" />
+    <None Include="wwwroot\Images\home02.psd" />
+    <None Include="wwwroot\Images\home02c.jpg" />
+    <None Include="wwwroot\Images\home02c.psd" />
+    <None Include="wwwroot\Images\home03.jpg" />
+    <None Include="wwwroot\Images\home03.psd" />
+    <None Include="wwwroot\Images\home03c.png" />
+    <None Include="wwwroot\Images\home03c.psd" />
+    <None Include="wwwroot\Images\indignado.jpg" />
+    <None Include="wwwroot\Images\logo.jpg" />
+    <None Include="wwwroot\Images\logo.png" />
+    <None Include="wwwroot\Images\logo.psd" />
+    <None Include="wwwroot\Images\logonome.png" />
+    <None Include="wwwroot\Images\logonome.psd" />
+    <None Include="wwwroot\Images\otimo.jpg" />
+    <None Include="wwwroot\Images\resposta.jpg" />
+    <None Include="wwwroot\Images\rindo-lula.webp" />
+    <None Include="wwwroot\Images\thumb.png" />
+    <None Include="wwwroot\Images\thumb.psd" />
+    <None Include="wwwroot\Images\thumb01.png" />
+    <None Include="wwwroot\Images\thumb02.png" />
+    <None Include="wwwroot\Images\veracibot.ico" />
+    <None Include="wwwroot\Images\voce.png" />
   </ItemGroup>
 
 </Project>

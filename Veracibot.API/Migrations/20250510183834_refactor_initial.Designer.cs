@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Veracibot.API.Data;
@@ -11,50 +12,56 @@ using Veracibot.API.Data;
 namespace Veracibot.API.Migrations
 {
     [DbContext(typeof(VeracibotDbContext))]
-    [Migration("20250507024705_balance")]
-    partial class balance
+    [Migration("20250510183834_refactor_initial")]
+    partial class refactor_initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.4");
+            modelBuilder
+                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("Veracibot.API.Models.AuthorBalance", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("bigint")
                         .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("AuthorId")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("author_id");
 
                     b.Property<double>("CurrentBalance")
-                        .HasColumnType("REAL")
+                        .HasColumnType("float")
                         .HasColumnName("current_balance");
 
                     b.Property<DateTime>("Date")
-                        .HasColumnType("TEXT")
+                        .HasColumnType("datetime2")
                         .HasColumnName("date");
 
                     b.Property<double>("PreviousBalance")
-                        .HasColumnType("REAL")
+                        .HasColumnType("float")
                         .HasColumnName("previous_balance");
 
                     b.Property<string>("TweetId")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("tweet_id");
 
                     b.Property<int>("Type")
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasColumnName("type");
 
                     b.Property<double>("Value")
-                        .HasColumnType("REAL")
+                        .HasColumnType("float")
                         .HasColumnName("value");
 
                     b.HasKey("Id")
@@ -73,17 +80,17 @@ namespace Veracibot.API.Migrations
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("id");
 
                     b.Property<string>("Name")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("name");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("user_name");
 
                     b.HasKey("Id")
@@ -99,31 +106,27 @@ namespace Veracibot.API.Migrations
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("id");
 
                     b.Property<string>("AuthorId")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("author_id");
 
                     b.Property<DateTime>("Date")
-                        .HasColumnType("TEXT")
+                        .HasColumnType("datetime2")
                         .HasColumnName("date");
 
                     b.Property<string>("OriginalAuthorId")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("original_author_id");
 
                     b.Property<string>("OriginalText")
                         .HasMaxLength(255)
                         .HasColumnType("TEXT")
                         .HasColumnName("original_text");
-
-                    b.Property<int>("Result")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("result");
 
                     b.Property<string>("Text")
                         .HasMaxLength(255)
@@ -132,11 +135,11 @@ namespace Veracibot.API.Migrations
 
                     b.Property<string>("ThreadId")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("thread_id");
 
                     b.Property<int>("TweetVeracity")
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasColumnName("tweet_veracity");
 
                     b.HasKey("Id")

@@ -1,10 +1,5 @@
 
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
-using System;
-using Veracibot.API.Bot;
 using Veracibot.API.Data;
 using Veracibot.API.Models;
 
@@ -25,19 +20,38 @@ namespace Veracibot.API
 
             // Add services to the container.
             builder.Services.AddDbContext<VeracibotDbContext>(options =>
-                options.UseSqlite(configuration.GetConnectionString("DefaultConnection")));
-            //eu usaria postgresql, SQLite é só pratico pra testes
+                //options.UseSqlite(configuration.GetConnectionString("DefaultConnection"))
+                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"))
+                
+                ); 
 
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
+            builder.Services.AddEndpointsApiExplorer();
 
-            SQLitePCL.Batteries.Init();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+                {
+                    Title = "Veracibot API",
+                    Version = "v1",
+                    Description = "Veracibot API"
+                });
+            });
 
-            builder.Services.AddHostedService<VeracibotBalanceWorker>();
-            builder.Services.AddHostedService<VeracibotOpenAIWorker>();
-            builder.Services.AddHostedService<VeracibotTweetWorker>();
+            //builder.Services.AddHostedService<VeracibotBalanceWorker>();
+            //builder.Services.AddHostedService<VeracibotOpenAIWorker>();
+            //builder.Services.AddHostedService<VeracibotTweetWorker>();
 
+            builder.Services.AddCors(options => {
+                options.AddDefaultPolicy(policy => {
+                    policy
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowAnyOrigin();
+                });
+            });
 
             var app = builder.Build();
 
@@ -45,17 +59,14 @@ namespace Veracibot.API
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
+                app.UseSwagger();
+                app.UseSwaggerUI();
             }
 
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<VeracibotDbContext>();
-
-                if (!await db.Database.EnsureCreatedAsync())
-                {
-                    await db.Database.MigrateAsync();
-                }
-                await db.SaveChangesAsync();
+                await db.Database.MigrateAsync();
             }
 
             app.UseHttpsRedirection();
@@ -63,6 +74,9 @@ namespace Veracibot.API
             app.UseAuthorization();
 
             app.MapControllers();
+
+            app.UseDefaultFiles();  // Procura por index.html automaticamente
+            app.UseStaticFiles();   // Habilita o uso de arquivos em wwwroot
 
             app.Run();
         }
