@@ -207,43 +207,8 @@ namespace Veracibot.API.Bot
                                         AuthorBalance originalAuthorBalance = await dbContext.AuthorBalances.OrderByDescending(x => x.Id).FirstOrDefaultAsync(e => e.AuthorId == fullResponseTweet.OriginalAuthorId);
                                         
                                         var scores = veracibotOptions.ScoreConfigurations[fullResponseTweet.TweetVeracity];
-
-                                        //float authorValue = 0;
-                                        //float originalAuthorValue = 0;
-
-                                        //switch (fullResponseTweet.TweetVeracity)
-                                        //{
-
-                                        //    case ETweetVeracity.Verdadeiro:
-
-                                        //        authorValue += 4;
-                                        //        originalAuthorValue -= 5;
-                                        //        break;
-
-                                        //    case ETweetVeracity.ParcialmenteVerdadeiro:
-                                        //        authorValue += 1;
-                                        //        originalAuthorValue -= 2;
-                                        //        break;
-
-                                        //    case  ETweetVeracity.Neutro:
-                                        //        authorValue -= 1;
-                                        //        break;
-
-                                        //    case  ETweetVeracity.ParcialmenteFalso:
-                                        //        authorValue -= 3;
-                                        //        originalAuthorValue += 2;
-                                        //        break;
-
-                                        //    case  ETweetVeracity.Falso:
-                                        //        authorValue -= 6;
-                                        //        originalAuthorValue += 5;
-                                        //        break;
-
-                                        //}
-
                                         var newAuthorBalance = new AuthorBalance { AuthorId = author.Id, Date = DateTime.UtcNow, PreviousBalance = authorBalance.CurrentBalance, CurrentBalance = authorBalance.CurrentBalance + scores.AuthorChange, Value = scores.AuthorChange, TweetId = fullResponseTweet.Id, Type = BalanceType.TweetCheck };
                                         var newOriginalAuthorBalance = new AuthorBalance { AuthorId = originalAuthor.Id, Date = DateTime.UtcNow, PreviousBalance = originalAuthorBalance.CurrentBalance, CurrentBalance = originalAuthorBalance.CurrentBalance + scores.OriginalAuthorChange, Value = scores.OriginalAuthorChange, TweetId = fullResponseTweet.Id, Type = BalanceType.BotCall };
-                                        
                                         
                                         await dbContext.Tweets.AddAsync(fullResponseTweet);
                                         var entryAuthor = await dbContext.AuthorBalances.AddAsync(newAuthorBalance);
@@ -270,12 +235,6 @@ namespace Veracibot.API.Bot
                         Console.WriteLine(ex.ToString());
 
                     }
-
-
-
-
-
-
 
                     await Task.Delay(TimeSpan.FromSeconds(veracibotOptions.VeracibotTweetIntervalSeconds), stoppingToken);
                 }

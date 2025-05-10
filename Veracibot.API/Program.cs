@@ -1,5 +1,6 @@
 
 using Microsoft.EntityFrameworkCore;
+using Veracibot.API.Bot;
 using Veracibot.API.Data;
 using Veracibot.API.Models;
 
@@ -42,7 +43,7 @@ namespace Veracibot.API
 
             //builder.Services.AddHostedService<VeracibotBalanceWorker>();
             //builder.Services.AddHostedService<VeracibotOpenAIWorker>();
-            //builder.Services.AddHostedService<VeracibotTweetWorker>();
+            builder.Services.AddHostedService<VeracibotTweetWorker>();
 
             builder.Services.AddCors(options => {
                 options.AddDefaultPolicy(policy => {
