@@ -11,6 +11,29 @@ namespace VeraciBot
     class Program
     {
 
+
+        public static string[] helpImage = { "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg" };
+        public static string[] helpResponse = {
+            "This is VERACIBOT, your fact-checking robot approved by the Ministry of Truth. For more details about the project, visit https://veraci.bot.",
+            "This is VERACIBOT, your fact-checking robot approved by the Ministry of Truth. For more details about the project, visit https://veraci.bot.",
+            "Esse é o VERACIBOT, seu robô para verificação de fatos aprovado pelo Ministério da Verdade. Para saber mais detalhes sobre o projeto consulte https://veraci.bot.",
+            "Este es VERACIBOT, su robot de verificación de hechos aprobado por el Ministerio de la Verdad. Para más detalles sobre el proyecto, visite https://veraci.bot.",
+            "Dies ist VERACIBOT, Ihr Faktenprüfungsroboter, der vom Ministerium für Wahrheit genehmigt wurde. Für weitere Details zum Projekt besuchen Sie https://veraci.bot.",
+            "C'est VERACIBOT, votre robot de vérification des faits approuvé par le Ministère de la Vérité. Pour plus de détails sur le projet, visitez https://veraci.bot.",
+            "This is VERACIBOT, your fact-checking robot approved by the Ministry of Truth. For more details about the project, visit https://veraci.bot.",
+        };
+
+        public static string[] pontImage = { "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg" };
+        public static string[] pontResponse = {
+            "Your score is",
+            "Your score is",
+            "Sua pontuação é",
+            "Tu puntuación es",
+            "Ihre Punktzahl beträgt",
+            "Votre score est",
+            "Your score is",
+        };
+
         static string[] resp = {
             "Vá imediatamente para a cadeia, seu bolsonarista fazedor de fakenews. 17 anos de cadeia imediatamente!",
             "Procure a carmen lucia para iniciar o curso de democracia relativa do tse e se prepara pra visita do Uber Black da PF",
@@ -28,7 +51,7 @@ namespace VeraciBot
 
             // Cria a tarefa e espera ela
             Task tarefa1 = ThreadCicloTwitterChatGpt();
-            
+
             Console.WriteLine("As tarefas foram iniciadas...");
 
             // Aguarda as duas tarefas terminarem
@@ -39,21 +62,21 @@ namespace VeraciBot
         }
 
         static async Task ThreadCicloTwitterChatGpt()
-        { 
+        {
 
             Console.WriteLine("TWIT: Connecting VERACIBOT database");
 
             var services = new ServiceCollection();
 
             services.AddDbContext<VeraciDbContext>(options => options.UseSqlServer(AppKeys.keys.dbConnection));
-            var serviceProvider = services.BuildServiceProvider();            
+            var serviceProvider = services.BuildServiceProvider();
             var dbContext = serviceProvider.GetRequiredService<VeraciDbContext>();
 
             // Cria o banco e a tabela automaticamente se não existirem
             dbContext.Database.EnsureCreated();
 
             Console.WriteLine("TWIT: Starting VERACIBOT bot");
-                        
+
             string startTime = DbConfig.GetLastDateTimeForTwitterCheck(dbContext).Result.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
             Console.WriteLine("TWIT: Checking mentions to @veracibot since " + startTime);
@@ -108,19 +131,18 @@ namespace VeraciBot
                             {
                                 Console.WriteLine($"Tweet {tweetId} is from the bot itself.");
                                 continue;
-                            }   
-                                                        
+                            }
+
                             string tweetDate = tweet["created_at"].ToString();
 
                             lastTime = DateTime.Parse(tweetDate);
                             DbConfig.SetLastDateTimeForTwitterCheck(dbContext, lastTime).Wait();
 
-                            if (authorId != USER_ID_PETER_ANCAPSU)
-                            {
-                                Console.WriteLine($"Tweet {tweetId} not authorized.");
-                                continue;
-
-                            }
+                            //if (authorId != USER_ID_PETER_ANCAPSU)
+                            //{
+                            //    Console.WriteLine($"Tweet {tweetId} not authorized.");
+                            //    continue;
+                            //}
 
                             var previousTweet = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
                             if (previousTweet != null)
@@ -142,31 +164,96 @@ namespace VeraciBot
 
                                     Console.WriteLine($"Tweet {tweetId} is a single tweet.");
 
-                                    VeraciBot.Data.Tweet helpTweet = new Data.Tweet()
+                                    // Qual o tweet?
+
+                                    string commandstr = fullThread.Tweets[0].Text;
+
+                                    if (commandstr == "")
                                     {
-                                        Id = tweetId,
-                                        OriginalText = "",
-                                        ThreadId = fullThread.Id,
-                                        Text = "",
-                                        AuthorId = authorId,
-                                        OriginalAuthorId = fullThread.AuthorA,
-                                        Result = 0
-                                    };
 
-                                    dbContext.Tweets.Add(helpTweet);
-                                    dbContext.SaveChanges();
+                                        VeraciBot.Data.Tweet helpTweet = new Data.Tweet()
+                                        {
+                                            Id = tweetId,
+                                            OriginalText = "",
+                                            ThreadId = fullThread.Id,
+                                            Text = "",
+                                            AuthorId = authorId,
+                                            OriginalAuthorId = fullThread.AuthorA,
+                                            Result = 0
+                                        };
 
-                                    string helpImage = "img/logo.jpg";
-                                    string helpResponse = "Esse é o VERACIBOT, seu robô para verificação de fatos aprovado pelo Ministério da Verdade. Para saber mais detalhes sobre o projeto consulte https://veraci.bot";
+                                        dbContext.Tweets.Add(helpTweet);
+                                        dbContext.SaveChanges();
 
-                                    TwitterAPI.TwitterUser author = await TwitterAPI.GetTwitterUserById(authorId);
-                                    TweetAuthor authorTweet = await TweetAuthor.GetTweetAuthor(dbContext, authorId, author.Username, author.Name);
+                                        await TwitterAPI.PostReplyWithImageAsync(helpResponse[0], helpImage[0], tweetId);
 
-                                    helpResponse = helpResponse + "\n\n" + authorTweet.GetDescription();
+                                        continue;
 
-                                    await TwitterAPI.PostReplyWithImageAsync(helpResponse, helpImage, tweetId);
+                                    }
+                                    else
+                                    {
 
-                                    continue;
+                                        // Chama o CHAT GPT
+
+                                        OpenAIAPI.IdentifiedCommand cmd = await OpenAIAPI.CheckCommand(commandstr);
+                                        if (cmd == null)
+                                        {
+                                            Console.WriteLine($"Thread {fullThread.Id} failed to check.");
+                                            continue;
+                                        }
+
+
+                                        switch (cmd.Result)
+                                        {
+                                            case 1: // Ajuda
+
+                                                VeraciBot.Data.Tweet helpTweet = new Data.Tweet()
+                                                {
+                                                    Id = tweetId,
+                                                    OriginalText = "",
+                                                    ThreadId = fullThread.Id,
+                                                    Text = "",
+                                                    AuthorId = authorId,
+                                                    OriginalAuthorId = fullThread.AuthorA,
+                                                    Result = 0
+                                                };
+
+                                                dbContext.Tweets.Add(helpTweet);
+                                                dbContext.SaveChanges();
+
+                                                await TwitterAPI.PostReplyWithImageAsync(helpResponse[cmd.Language], helpImage[cmd.Language], tweetId);
+                                                break;
+
+                                            case 2: // Pontuacao
+
+                                                VeraciBot.Data.Tweet pontTweet = new Data.Tweet()
+                                                {
+                                                    Id = tweetId,
+                                                    OriginalText = "",
+                                                    ThreadId = fullThread.Id,
+                                                    Text = "",
+                                                    AuthorId = authorId,
+                                                    OriginalAuthorId = fullThread.AuthorA,
+                                                    Result = 0
+                                                };
+
+                                                dbContext.Tweets.Add(pontTweet);
+                                                dbContext.SaveChanges();
+
+                                                TwitterAPI.TwitterUser author = await TwitterAPI.GetTwitterUserById(authorId);
+                                                TweetAuthor authorTweet = await TweetAuthor.GetTweetAuthor(dbContext, authorId, author.Username, author.Name);
+
+                                                string finalResponse = pontResponse[cmd.Language] + ": " + authorTweet.GetDescription();
+
+                                                await TwitterAPI.PostReplyWithImageAsync(finalResponse, pontImage[cmd.Language], tweetId);
+                                                break;
+
+
+                                        }
+
+                                        continue;
+
+                                    }
 
                                 }
 
@@ -187,8 +274,8 @@ namespace VeraciBot
                                 TweetAuthor authorA = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorA, userAuthorA.Username, userAuthorA.Name);
                                 TweetAuthor authorB = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorB, userAuthorB.Username, userAuthorB.Name);
 
-                                fullThread.AuthorA = authorA.UserName;  
-                                fullThread.AuthorB = authorB.UserName;  
+                                fullThread.AuthorA = authorA.UserName;
+                                fullThread.AuthorB = authorB.UserName;
 
                                 if (authorB.Value <= 0)
                                 {
@@ -269,12 +356,11 @@ namespace VeraciBot
 
                 }
 
-                Thread.Sleep(60000);
+                Thread.Sleep(10000);
 
             }
 
         }
-
 
     }
 
