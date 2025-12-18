@@ -1,4 +1,5 @@
-﻿using Azure.Identity;
+﻿using System.ComponentModel.DataAnnotations;
+using Azure.Identity;
 using Microsoft.EntityFrameworkCore;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -9,20 +10,34 @@ namespace VeraciBot.Data
     {
 
         /// <summary>
-        /// Id do tweet que chamou o @veracibot
+        /// Id autorizado do usuário
         /// </summary>
         public string Id { get; set; } = string.Empty;
 
         /// <summary>
-        /// Tag do usuário (@)
+        /// Quem autorizou o usuário
         /// </summary>
-        public string UserName { get; set; } = string.Empty;
+        public string AuthorizedById { get; set; } = string.Empty;
 
         /// <summary>
-        /// Nome do usuário
+        /// Quando o usuário foi autorizado (UTC)
         /// </summary>
-        public string Name { get; set; } = string.Empty;
+        public DateTime AuthorizationDate { get; set; } = DateTime.UtcNow;
 
+        /// <summary>
+        /// Autorizado mesmo?
+        /// </summary>
+        public int Status { get; set; } = 1; // 1 = Ativo, 0 = Inativo
+
+        /// <summary>
+        /// Autorização máxima por usuário
+        /// </summary>
+        static public int MaxAuthorizationsPerUser = 5;
+
+        /// <summary>
+        /// Número de autorizações disponíveis   
+        /// </summary>
+        public int NumberOfAuthorizations { get; set; } = MaxAuthorizationsPerUser;
 
     }
 

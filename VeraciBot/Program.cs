@@ -11,6 +11,8 @@ namespace VeraciBot
     class Program
     {
 
+        public static string notAuthorizedImage = "img/no.jpg";
+        public static string notAuthorizedResponse = "You are not authorized to use VERACIBOT. You must be invited to play this game.";
 
         public static string[] helpImage = { "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg" };
         public static string[] helpResponse = {
@@ -41,8 +43,6 @@ namespace VeraciBot
             "Parabens por ser um gado muito obediente e só falar a verdade aprovada pelo sistema",
             "Ahhrá... agora sim, tudo certo... ganhou TROFEU DEMOCRACIA RELATIVA do XANDÃO"
         };
-
-        private const string USER_ID_PETER_ANCAPSU = "778933271354826752";
 
         static async Task Main(string[] args)
         {
@@ -138,11 +138,27 @@ namespace VeraciBot
                             lastTime = DateTime.Parse(tweetDate);
                             DbConfig.SetLastDateTimeForTwitterCheck(dbContext, lastTime).Wait();
 
-                            //if (authorId != USER_ID_PETER_ANCAPSU)
-                            //{
-                            //    Console.WriteLine($"Tweet {tweetId} not authorized.");
-                            //    continue;
-                            //}
+                            var authorization = await dbContext.AuthorizedUsers.FirstOrDefaultAsync(e => e.Id == authorId);
+                            if (authorization == null)
+                            {
+
+                                VeraciBot.Data.Tweet helpTweet = new Data.Tweet()
+                                {
+                                    Id = tweetId,
+                                    OriginalText = "",
+                                    Text = "",
+                                    AuthorId = authorId,
+                                    Result = 0
+                                };
+
+                                dbContext.Tweets.Add(helpTweet);
+                                dbContext.SaveChanges();
+
+                                await TwitterAPI.PostReplyWithImageAsync(notAuthorizedResponse, notAuthorizedImage, tweetId);
+
+                                continue;
+
+                            }
 
                             var previousTweet = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
                             if (previousTweet != null)
@@ -356,7 +372,7 @@ namespace VeraciBot
 
                 }
 
-                Thread.Sleep(10000);
+                Thread.Sleep(60000);
 
             }
 

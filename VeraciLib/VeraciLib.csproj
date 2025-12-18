@@ -28,9 +28,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="appkeys_old.json">
+    <None Update="appkeys.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </None>   
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

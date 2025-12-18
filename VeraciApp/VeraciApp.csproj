@@ -30,9 +30,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Update="appkeys.json">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </Content>
     <Content Update="wwwroot\base.css">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
