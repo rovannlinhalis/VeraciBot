@@ -27,7 +27,7 @@ namespace VeraciBot.Data
         /// <summary>
         /// Autorizado mesmo?
         /// </summary>
-        public int Status { get; set; } = 1; // 1 = Ativo, 0 = Inativo
+        public int Status { get; set; } = 1; // 1 = Ativo, 0 = Inativo, 2 = Convite enviado
 
         /// <summary>
         /// Autorização máxima por usuário

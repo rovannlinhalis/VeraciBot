@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Tweetinvi;
 using System.Security.Cryptography;
+using Azure.Core;
 
 namespace VeraciBot
 {
@@ -13,6 +14,7 @@ namespace VeraciBot
 
         public class TwitterUser
         {
+            public string Id { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
             public string Username { get; set; } = string.Empty;
         }
@@ -40,6 +42,46 @@ namespace VeraciBot
             {
                 return new TwitterUser
                 {
+                    Id = data.GetProperty("id").GetString(),
+                    Name = data.GetProperty("name").GetString(),
+                    Username = data.GetProperty("username").GetString()
+                };
+            }
+
+            return null;
+
+        }
+
+
+        public static async Task<TwitterUser> GetTwitterUserByUserName(string userName)
+        {
+
+            if (userName.StartsWith("@"))
+            {
+                userName = userName.Substring(1);
+            }
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.xBearerToken);
+
+            string url = $"https://api.twitter.com/2/users/by/username/{userName}";
+
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Erro: {response.StatusCode}");
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("data", out var data))
+            {
+                return new TwitterUser
+                {
+                    Id = data.GetProperty("id").GetString(),
                     Name = data.GetProperty("name").GetString(),
                     Username = data.GetProperty("username").GetString()
                 };
@@ -120,6 +162,33 @@ namespace VeraciBot
             result = Regex.Replace(result, @"\s{2,}", " ");
 
             return result.Trim();
+
+        }
+
+        /// <summary>
+        /// Finds all user references in the specified text that are prefixed with the '@' symbol.
+        /// </summary>
+        /// <remarks>User references are identified as sequences that start with '@' followed by one or
+        /// more letters, digits, or underscores. The search is case-sensitive and does not validate whether the
+        /// referenced users exist.</remarks>
+        /// <param name="text">The text to search for user references. May be null or empty.</param>
+        /// <returns>An array of strings containing all user references found in the text, each starting with '@'. Returns an
+        /// empty array if no user references are found.</returns>
+        public static string[] FindUsersReference(string text)
+        {
+
+            // Regex para encontrar @ seguido de letras, números e underscores
+            string standard = @"@\w+";
+            
+            MatchCollection matches = Regex.Matches(text, standard);
+            List<string> users = new List<string>();
+            
+            foreach (Match match in matches)
+            {
+                users.Add(match.Value);
+            }
+            
+            return users.ToArray();
 
         }
 
