@@ -14,73 +14,37 @@ namespace VeraciBot
     {
 
         public static string notAuthorizedImage = "img/no.jpg";
-        public static string notAuthorizedResponse = "You are not authorized to use VERACIBOT. You must be invited to play this game.";
+        public static string notAuthorizedResponse = "Quem é você? Você não é ninguém! Não está autorizado a me chamar. Volte quando estiver nos inquéritos do fim do mundo. Aqui só com convite! Para mais detahes, veja https://veraci.bot.";
 
-        public static string[] helpImage = { "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg" };
-        public static string[] helpResponse = {
-            "This is VERACIBOT, your fact-checking robot approved by the Ministry of Truth. With this bot, you can expose other petty tyrants who attack our supreme democracy with fake news. This might help you get a lighter sentence or screw over other people for free. For more details about the project, visit https://veraci.bot.",
-            "This is VERACIBOT, your fact-checking robot approved by the Ministry of Truth. With this bot, you can expose other petty tyrants who attack our supreme democracy with fake news. This might help you get a lighter sentence or screw over other people for free. For more details about the project, visit https://veraci.bot.",
-            "Esse é o VERACIBOT, seu robô para verificação de fatos aprovado pelo Ministério da Verdade. Com o uso desse robô, você pode dedurar outros pequenos tiraninhos que ficam atacando nossa suprema democracia com fake-news. Com isso, talvez, conseguir uma dosimetria de pena para você ou ferrar outras pessoas de graça. Para saber mais detalhes sobre o projeto consulte https://veraci.bot.",
-            "Este es VERACIBOT, su robot de verificación de hechos aprobado por el Ministerio de la Verdad. Con este bot, puedes exponer a otros tiranos que atacan nuestra suprema democracia con noticias falsas. Esto podría ayudarte a obtener una sentencia más leve o a perjudicar a otros sin costo alguno. Para más detalles sobre el proyecto, visite https://veraci.bot.",
-            "Dies ist VERACIBOT, Ihr Faktenprüfungsroboter, der vom Ministerium für Wahrheit genehmigt wurde. Mit diesem Bot kannst du andere Kleinganoven entlarven, die unsere Demokratie mit Fake News angreifen. Das könnte dir zu einer milderen Strafe verhelfen oder dir ermöglichen, andere kostenlos zu schädigen. Für weitere Details zum Projekt besuchen Sie https://veraci.bot.",
-            "C'est VERACIBOT, votre robot de vérification des faits approuvé par le Ministère de la Vérité. Ce bot vous permettra de démasquer les petits tyrans qui s'attaquent à notre démocratie en diffusant de fausses informations. Vous pourriez ainsi obtenir une peine plus légère ou nuire gratuitement à d'autres. Pour plus de détails sur le projet, visitez https://veraci.bot.",
-            "This is VERACIBOT, your fact-checking robot approved by the Ministry of Truth. With this bot, you can expose other petty tyrants who attack our supreme democracy with fake news. This might help you get a lighter sentence or screw over other people for free. For more details about the project, visit https://veraci.bot.",
-        };
+        public static string failedToUnderstandImage = "img/duvida.jpg";
+        public static string failedToUnderstandResponse = "Não entedi o que você quer. Tome cuidado que qualquer erro são mais 17 anos de cadeia. Se quiser ajuda, peça ajuda. Para mais detahes, veja https://veraci.bot.";
+        
+        public static string failedToUnderstandAcceptImage = "img/duvida.jpg";
+        public static string failedToUnderstandAcceptResponse = "Não entedi o que você quer. Você tem que aceitar ou recusar o convite antes de mais nada. Se quiser ajuda, peça ajuda. Para mais detahes, veja https://veraci.bot.";
 
-        public static string[] pontImage = { "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg" };
-        public static string[] pontResponse = {
-            "How dare you bother me with your petty demands, you little tyrant! This is an attack on our democracy! Your trial is confidential... but a journalist leaked some information:",
-            "How dare you bother me with your petty demands, you little tyrant! This is an attack on our democracy! Your trial is confidential... but a journalist leaked some information:",
-            "Como ousa me incomodar com seus pedidos insignificantes, seu tiraninho! Isso é um ataque a nossa democracia! Seu processo é sigiloso... mas uma jornalista vazou umas informações:",
-            "¡Cómo te atreves a molestarme con tus mezquinas exigencias, pequeño tirano! ¡Esto es un atentado contra nuestra democracia! Tu juicio es confidencial... pero un periodista filtró información:",
-            "Wie kannst du es wagen, mich mit deinen kleinlichen Forderungen zu belästigen, du kleiner Tyrann! Das ist ein Angriff auf unsere Demokratie! Dein Prozess ist vertraulich... aber ein Journalist hat einige Informationen durchsickern lassen:",
-            "Comment osez-vous me harceler avec vos exigences mesquines, petit tyran ! C'est une attaque contre notre démocratie ! Votre procès est confidentiel… mais un journaliste a divulgué quelques informations:",
-            "How dare you bother me with your petty demands, you little tyrant! This is an attack on our democracy! Your trial is confidential... but a journalist leaked some information:",
-        };
+        public static string helpImage = "img/logo.jpg";
+        public static string helpResponse = "Esse é o VERACIBOT, seu robô para verificação de fatos aprovado pelo Ministério da Verdade. Com o uso desse robô, você pode dedurar outros pequenos tiraninhos que ficam atacando nossa suprema democracia com fake-news. Com isso, talvez, conseguir uma dosimetria de pena para você ou ferrar outras pessoas de graça. Para saber mais detalhes, veja https://veraci.bot.";
+            
+        public static string pontImage = "img/logo.jpg";
+        public static string pontResponse = "Como ousa me incomodar com seus pedidos insignificantes, seu tiraninho! Isso é um ataque a nossa democracia! Seu processo é sigiloso... mas uma jornalista vazou umas informações:";
 
-        public static string[] scoreImage = { "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg", "img/logo.jpg" };
-        public static string[] scoreResponse = {
-            "The list of the biggest petty tyrants shows the degradation of our supreme democracy! We need to arrest more people to civilize this nation! See the worst:",
-            "The list of the biggest petty tyrants shows the degradation of our supreme democracy! We need to arrest more people to civilize this nation! See the worst:",
-            "A tabela dos maiores pequenos tiranos mostra a degradação da nossa suprema democracia! É preciso prender mais gente para civilizar esse povo! Veja os piores:",
-            "¡La lista de los mayores tiranos mezquinos muestra la degradación de nuestra suprema democracia! ¡Necesitamos arrestar a más gente para civilizar esta nación! Vean lo peor:",
-            "Die Liste der größten Kleintyrannen zeigt den Verfall unserer angeblich so hochgehaltenen Demokratie! Wir müssen mehr Menschen verhaften, um dieses Land wieder zu zivilisieren! Sehen Sie die Schlimmsten:",
-            "La liste des plus grands petits tyrans témoigne de la dégradation de notre démocratie ! Il faut arrêter davantage de personnes pour civiliser ce pays ! Voyez les pires exemples:",
-            "The list of the biggest petty tyrants shows the degradation of our supreme democracy! We need to arrest more people to civilize this nation! See the worst:",
-        };
+        public static string scoreImage = "img/logo.jpg";
+        public static string scoreResponse = "A tabela dos maiores pequenos tiranos mostra a degradação da nossa suprema democracia! É preciso prender mais gente para civilizar esse povo! Veja os piores:";
 
-        public static string[] inviteImage = { "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg" };
-        public static string[] inviteResponse = {
-            "You have been identified as one of the millions of petty tyrants who have a mania for attacking supreme democracy with fake news. Your sentence is 17 years in prison without amnesty. But we offer the possibility of a plea bargain. Do you accept to participate in this game? Learn how VERACIBOT works at https://veraci.bot.",
-            "You have been identified as one of the millions of petty tyrants who have a mania for attacking supreme democracy with fake news. Your sentence is 17 years in prison without amnesty. But we offer the possibility of a plea bargain. Do you accept to participate in this game? Learn how VERACIBOT works at https://veraci.bot.",
-            "Você foi identificado como um dos milhões de tiraninhos que tem mania de agredir a democracia suprema com fake news. Sua pena é de 17 anos de cadeia sem anistia. Mas oferecemos a possibilidade de delação premiada. Você aceita participar desse jogo? Saiba como funciona o VERACIBOT em https://veraci.bot.",
-            "Se le ha identificado como uno de los millones de tiranos mezquinos obsesionados con atacar la suprema democracia con noticias falsas. Su condena es de 17 años de prisión sin amnistía. Pero le ofrecemos la posibilidad de un acuerdo con la fiscalía. ¿Acepta participar en este juego? Descubra cómo funciona VERACIBOT en https://veraci.bot.",
-            "Sie wurden als einer der Millionen von Kleintyrannen identifiziert, die mit einer Manie die Demokratie mit Falschnachrichten angreifen. Ihre Strafe beträgt 17 Jahre Haft ohne Begnadigung. Wir bieten Ihnen jedoch die Möglichkeit einer Verständigung an. Sind Sie bereit, an diesem Spiel teilzunehmen? Erfahren Sie mehr über die Funktionsweise von VERACIBOT unter https://veraci.bot.",
-            "Vous avez été identifié comme l'un des millions de petits tyrans qui s'adonnent à la désinformation en attaquant la démocratie. Votre peine est de 17 ans de prison sans possibilité de libération conditionnelle. Cependant, nous vous proposons une négociation de peine. Acceptez-vous de participer à ce jeu ? Découvrez le fonctionnement de VERACIBOT sur https://veraci.bot.",
-            "You have been identified as one of the millions of petty tyrants who have a mania for attacking supreme democracy with fake news. Your sentence is 17 years in prison without amnesty. But we offer the possibility of a plea bargain. Do you accept to participate in this game? Learn how VERACIBOT works at https://veraci.bot.",
-        };
+        public static string inviteImage = "img/invite.jpg";
+        public static string inviteResponse = "Você foi identificado como um dos milhões de tiraninhos que tem mania de agredir a democracia suprema com fake news. Sua pena é de 17 anos de cadeia sem anistia. Mas oferecemos a possibilidade de delação premiada. Você aceita participar desse jogo? Saiba como funciona o VERACIBOT em https://veraci.bot.";
 
-        public static string[] acceptImage = { "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg" };
-        public static string[] acceptResponse = {
-            "By accepting this invitation, you confirm that you are indeed a petty tyrant who attacks our supreme democracy with fake news. I didn't need proof before, and I need it even less now. Now your job is to snitch on others to try and reduce your sentence. Good luck in the game.",
-            "By accepting this invitation, you confirm that you are indeed a petty tyrant who attacks our supreme democracy with fake news. I didn't need proof before, and I need it even less now. Now your job is to snitch on others to try and reduce your sentence. Good luck in the game.",
-            "Ao aceitar esse convite, você confirma que é mesmo um tiraninho que ataca nossa suprema democracia com fake-news. Eu não precisava de provas antes e preciso menos ainda agora. Agora sua função é dedurar os outros para tentar reduzir sua pena. Boa sorte no jogo.",
-            "Al aceptar esta invitación, confirmas que eres un tirano de poca monta que ataca nuestra suprema democracia con noticias falsas. Antes no necesitaba pruebas, y ahora las necesito aún menos. Ahora tu trabajo es delatar a otros para intentar reducir tu condena. ¡Buena suerte en el juego!",
-            "Mit der Annahme dieser Einladung bestätigen Sie, dass Sie tatsächlich ein kleinlicher Tyrann sind, der unsere Demokratie mit Falschnachrichten angreift. Ich brauchte vorher keine Beweise, und jetzt brauche ich sie erst recht nicht. Nun ist es Ihre Aufgabe, andere zu denunzieren, um Ihre Strafe zu mildern. Viel Glück dabei.",
-            "En acceptant cette invitation, vous confirmez être un petit tyran qui s'attaque à notre démocratie suprême avec de fausses informations. Je n'avais pas besoin de preuves auparavant, et j'en ai encore moins besoin maintenant. Désormais, votre rôle est de dénoncer les autres pour tenter d'obtenir une réduction de peine. Bonne chance!",
-            "By accepting this invitation, you confirm that you are indeed a petty tyrant who attacks our supreme democracy with fake news. I didn't need proof before, and I need it even less now. Now your job is to snitch on others to try and reduce your sentence. Good luck in the game.",
-        };
+        public static string inviteErrorImage = "img/no.jpg";
+        public static string inviteErrorResponse = "Esse tiraninho já foi convidado para o inquérito do fim do mundo! Ou já está jogando o jogo ou estamos lidando com ele de outra forma. Escolha outra vítima para suas ambições maquiavélicas!";
 
-        public static string[] noAcceptImage = { "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg", "img/invite.jpg" };
-        public static string[] noAcceptResponse = {
-            "Don't think you'll escape my pursuit just by refusing to participate in our game. Goodbye. For now.",
-            "Don't think you'll escape my pursuit just by refusing to participate in our game. Goodbye. For now.",
-            "Não ache que você vai escapar da minha perseguição apenas por negar participar no nosso jogo. Tchau. Por equanto.",
-            "No creas que escaparás de mi persecución simplemente negándote a participar en nuestro juego. Adiós. Por ahora.",
-            "Glaub ja nicht, dass du meiner Verfolgung entkommst, indem du dich weigerst, an unserem Spiel teilzunehmen. Auf Wiedersehen. Vorläufig.",
-            "Ne crois pas que tu échapperas à mes poursuites simplement en refusant de participer à notre jeu. Au revoir. Pour l'instant.",
-            "Don't think you'll escape my pursuit just by refusing to participate in our game. Goodbye. For now.",
-        };
+        public static string inviteNoUserImage = "img/no.jpg";
+        public static string inviteNoUserResponse = "Para convidar alguém, você precisa marcar o usuário que quer convidar, além do VERACIBOT. Não abuse da minha paciência suprema. Qualquer coisa é mais 14 anos de cadeia.";
+
+        public static string acceptImage = "img/logo.jpg";
+        public static string acceptResponse = "Ao aceitar esse convite, você confirma que é mesmo um tiraninho que ataca nossa suprema democracia com fake-news. Eu não precisava de provas antes e preciso menos ainda agora. Agora sua função é dedurar os outros para tentar reduzir sua pena. Boa sorte no jogo.";
+
+        public static string noAcceptImage = "img/no.jpg";
+        public static string noAcceptResponse = "Não ache que você vai escapar da minha perseguição apenas por negar participar no nosso jogo. Seu nome continua sendo discutido em nossos grupos de WhatsApp. Tchau. Por equanto.";
 
         static string[] resp = {
             "Vá imediatamente para a cadeia, seu bolsonarista fazedor de fakenews. 17 anos de cadeia imediatamente!",
@@ -170,23 +134,50 @@ namespace VeraciBot
                         foreach (var tweet in tweets)
                         {
 
-                            string tweetId = tweet["id"].ToString();
-                            string authorId = tweet["author_id"].ToString();
+                            // Pega infos do tweet
 
-                            if (authorId == AppKeys.keys.xUserId)
+                            if (tweet?["id"] == null)
                             {
-                                Console.WriteLine($"Tweet {tweetId} is from the bot itself.");
+                                Console.WriteLine("Tweet id is null, skipping.");
                                 continue;
                             }
+                            string tweetId = tweet["id"]!.ToString();
 
-                            string tweetDate = tweet["created_at"].ToString();
+                            if (tweet?["author_id"] == null)
+                            {
+                                Console.WriteLine($"Tweet {tweetId} author_id is null, skipping.");
+                                continue;
+                            }
+                            string authorId = tweet["author_id"]!.ToString();
+
+                            if (tweet?["created_at"] == null)
+                            {
+                                Console.WriteLine($"Tweet {tweetId} created_at is null, skipping.");
+                                continue;
+                            }
+                            string tweetDate = tweet["created_at"]!.ToString();
+
+                            // Atualiza o último tweet processado
 
                             lastTime = DateTime.Parse(tweetDate);
                             DbConfig.SetLastDateTimeForTwitterCheck(dbContext, lastTime).Wait();
 
-                            var authorization = await dbContext.AuthorizedUsers.FirstOrDefaultAsync(e => e.Id == authorId);
-                            if (authorization == null)
+                            // Já tratei esse tweet? -> ignora
+
+                            var previousTweet = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
+                            if (previousTweet != null)
                             {
+                                Console.WriteLine($"Tweet {tweetId} already processed.");
+                                continue;
+                            }
+
+                            // Usuário tem autorização?
+
+                            var authorization = await dbContext.AuthorizedUsers.FirstOrDefaultAsync(e => e.Id == authorId);
+                            if (authorization == null || (authorization != null && authorization.Status == AuthorizedUser.STATUS_NOT_AUTHORIZED))
+                            {
+
+                                // Não está autorizado
 
                                 VeraciBot.Data.Tweet notAuthTweet = new Data.Tweet()
                                 {
@@ -202,6 +193,8 @@ namespace VeraciBot
                                 dbContext.Tweets.Add(notAuthTweet);
                                 dbContext.SaveChanges();
 
+                                // TODO: Verificar a lingua do usuário e responder na língua correta
+
                                 string notAuthorizedResponseText = await OpenAIAPI.VariatePhrase(notAuthorizedResponse);
 
                                 await TwitterAPI.PostReplyWithImageAsync(notAuthorizedResponseText, notAuthorizedImage, tweetId);
@@ -210,76 +203,108 @@ namespace VeraciBot
 
                             }
 
-                            var previousTweet = await dbContext.Tweets.FirstOrDefaultAsync(e => e.Id == tweetId);
-                            if (previousTweet != null)
-                            {
-                                Console.WriteLine($"Tweet {tweetId} already processed.");
-                                continue;
-                            }
-
-                            Console.WriteLine($"Getting command from {tweetId}...");
-
-                            // O que o usuário pediu?
-                            string commandstr = tweet?["text"]?.ToString() ?? "";
+                            // Tenho que tratar esse tweet
 
                             Console.WriteLine($"Getting full thread {tweetId}...");
 
-                            // Temos que saber se é thread ou apenas uma chamada simples
+                            // Pega todo o contexto da thread que o tweet faz parte
+
                             TwitterAPI.ThreadContext fullThread = await TwitterAPI.GetThreadContext(tweetId, authorId);
-
-                            bool isSingleTweet = true;
-
-                            if (fullThread != null && fullThread.AuthorA != AppKeys.keys.xUserId && fullThread.Tweets.Count > 1)
-                                isSingleTweet = false;
-
-                            // Chama o CHAT GPT
-
-                            OpenAIAPI.IdentifiedCommand cmd = await OpenAIAPI.CheckCommand(commandstr, isSingleTweet);
-                            if (cmd == null)
-                            {
-                                Console.WriteLine($"Command {tweetId} failed to get command.");
-                                continue;
-                            }
-
                             if (fullThread != null && fullThread.AuthorA != AppKeys.keys.xUserId)
                             {
 
-                                // Se for só um tweet, não precisa de thread, só fale a resposta    
+                                // Temos que saber se é thread ou apenas uma chamada simples
 
-                                if (fullThread.Tweets.Count == 1)
+                                bool isSingleTweet = true;
+
+                                if (fullThread != null && fullThread.AuthorA != AppKeys.keys.xUserId && fullThread.Tweets.Count > 1)
+                                    isSingleTweet = false;
+
+                                // O que o usuário pediu?
+                            
+                                Console.WriteLine($"Getting command from {tweetId}...");
+
+                                string commandstr = tweet?["text"]?.ToString() ?? "";
+
+                                // Chama o CHAT GPT para identificar o comando
+
+                                OpenAIAPI.IdentifiedCommand cmd = await OpenAIAPI.CheckCommand(commandstr, isSingleTweet);
+
+                                // Checa comando invalido
+
+                                if (cmd == null || cmd.Result == OpenAIAPI.CMD_UNKNOWN || 
+                                    (cmd.Result != OpenAIAPI.CMD_HELP && cmd.Result != OpenAIAPI.CMD_SCORE && cmd.Result != OpenAIAPI.CMD_SCOREBOARD && 
+                                    cmd.Result != OpenAIAPI.CMD_INVITE && cmd.Result != OpenAIAPI.CMD_ACCEPT_INVITE && cmd.Result != OpenAIAPI.CMD_REFUSE_INVITE && 
+                                    cmd.Result!= OpenAIAPI.CMD_THREAD_FALSE && cmd.Result != OpenAIAPI.CMD_THREAD_ARGUE && cmd.Result != OpenAIAPI.CMD_THREAD_WHOISRIGHT))
                                 {
 
-                                    Console.WriteLine($"Tweet {tweetId} is a single tweet.");
+                                    // Não entendi o comando
 
-                                    if (commandstr == "")
+                                    VeraciBot.Data.Tweet failToUnderstandTweet = new Data.Tweet()
                                     {
+                                        Id = tweetId,
+                                        OriginalText = "",
+                                        ThreadId = tweetId,
+                                        Text = "",
+                                        AuthorId = authorId,
+                                        OriginalAuthorId = authorId,
+                                        Result = 0
+                                    };
 
-                                        VeraciBot.Data.Tweet helpTweet = new Data.Tweet()
-                                        {
-                                            Id = tweetId,
-                                            OriginalText = "",
-                                            ThreadId = fullThread.Id,
-                                            Text = "",
-                                            AuthorId = authorId,
-                                            OriginalAuthorId = fullThread.AuthorA,
-                                            Result = 0
-                                        };
+                                    dbContext.Tweets.Add(failToUnderstandTweet);
+                                    dbContext.SaveChanges();
 
-                                        dbContext.Tweets.Add(helpTweet);
-                                        dbContext.SaveChanges();
+                                    string failedToUndesrstadText = await OpenAIAPI.VariatePhrase(failedToUnderstandResponse);
 
-                                        await TwitterAPI.PostReplyWithImageAsync(helpResponse[0], helpImage[0], tweetId);
+                                    await TwitterAPI.PostReplyWithImageAsync(failedToUndesrstadText, failedToUnderstandImage, tweetId);
 
-                                        continue;
-
-                                    }
+                                    continue;
 
                                 }
+
+                                // Verficia autorização específica para aceitar (ou não) convite
+
+                                if (authorization != null && authorization.Status == AuthorizedUser.STATUS_INVITED && cmd.Result != OpenAIAPI.CMD_ACCEPT_INVITE && cmd.Result != OpenAIAPI.CMD_REFUSE_INVITE)
+                                {
+
+                                    // Não entendi o comando, precisa aceitar ou negar
+
+                                    VeraciBot.Data.Tweet failToUnderstandTweet = new Data.Tweet()
+                                    {
+                                        Id = tweetId,
+                                        OriginalText = "",
+                                        ThreadId = tweetId,
+                                        Text = "",
+                                        AuthorId = authorId,
+                                        OriginalAuthorId = authorId,
+                                        Result = 0
+                                    };
+
+                                    dbContext.Tweets.Add(failToUnderstandTweet);
+                                    dbContext.SaveChanges();
+
+                                    string failedToUndesrstadAcceptText = await OpenAIAPI.VariatePhrase(failedToUnderstandAcceptResponse);
+
+                                    await TwitterAPI.PostReplyWithImageAsync(failedToUndesrstadAcceptText, failedToUnderstandAcceptImage, tweetId);
+
+                                    continue;
+
+                                }
+
+                                // Comando de aceitar ou recusar quando autorização já foi feita... não faz sentido... ignorar
+
+                                if (authorization != null && authorization.Status == AuthorizedUser.STATUS_AUTHORIZED && (cmd.Result == OpenAIAPI.CMD_ACCEPT_INVITE || cmd.Result == OpenAIAPI.CMD_REFUSE_INVITE))
+                                {
+                                    Console.WriteLine($"Tweet {tweetId} aceitação ou recusa já feita. Ignorado.");
+                                    continue;
+                                }
+
+                                // Executa o comando
 
                                 switch (cmd.Result)
                                 {
 
-                                    case 1: // Ajuda
+                                    case OpenAIAPI.CMD_HELP: // Ajuda
 
                                         VeraciBot.Data.Tweet helpTweet = new Data.Tweet()
                                         {
@@ -295,12 +320,12 @@ namespace VeraciBot
                                         dbContext.Tweets.Add(helpTweet);
                                         dbContext.SaveChanges();
 
-                                        string helpResponseText = await OpenAIAPI.VariatePhrase(helpResponse[cmd.Language]);
+                                        string helpResponseText = await OpenAIAPI.VariatePhrase(helpResponse);
 
-                                        await TwitterAPI.PostReplyWithImageAsync(helpResponseText, helpImage[cmd.Language], tweetId);
+                                        await TwitterAPI.PostReplyWithImageAsync(helpResponseText, helpImage, tweetId);
                                         break;
 
-                                    case 2: // Pontuacao
+                                    case OpenAIAPI.CMD_SCORE: // Pontuacao
 
                                         VeraciBot.Data.Tweet pontTweet = new Data.Tweet()
                                         {
@@ -319,13 +344,13 @@ namespace VeraciBot
                                         TwitterAPI.TwitterUser author = await TwitterAPI.GetTwitterUserById(authorId);
                                         TweetAuthor authorTweet = await TweetAuthor.GetTweetAuthor(dbContext, authorId, author.Username, author.Name);
 
-                                        string finalResponse = pontResponse[cmd.Language] + ": " + authorTweet.GetDescription();
+                                        string finalResponse = pontResponse + ": " + authorTweet.GetDescription();
 
-                                        await TwitterAPI.PostReplyWithImageAsync(finalResponse, pontImage[cmd.Language], tweetId);
+                                        await TwitterAPI.PostReplyWithImageAsync(finalResponse, pontImage, tweetId);
                                         break;
 
 
-                                    case 4: // Convidar outra pessoa
+                                    case OpenAIAPI.CMD_INVITE: // Convidar outra pessoa
 
                                         VeraciBot.Data.Tweet InviteTweet = new Data.Tweet()
                                         {
@@ -341,58 +366,107 @@ namespace VeraciBot
                                         dbContext.Tweets.Add(InviteTweet);
                                         dbContext.SaveChanges();
 
-                                        string inviteText = await OpenAIAPI.VariatePhrase(inviteResponse[cmd.Language]);
+                                        string inviteText = await OpenAIAPI.VariatePhrase(inviteResponse);
 
                                         // Identifica outros usuários no tweet
 
                                         string[] userNames = TwitterAPI.FindUsersReference(commandstr);
-                                        string inviteUserName = null;
+                                        string inviteUserName = "";
 
-                                        if (userNames.Length > 0)
+                                        // Pega o último usuário que não seja o veracibot nem que postou
+
+                                        string authorUserName = (await TwitterAPI.GetTwitterUserById(authorId)).Username.ToLower();
+
+                                        for (int i = userNames.Length - 1; i >= 0; i--)
                                         {
-                                            inviteUserName = userNames[userNames.Length - 1];
+                                            if (userNames[i].ToLower() != "veracibot" && userNames[i].ToLower() != authorUserName)
+                                            {
+                                                inviteUserName = userNames[i];
+                                                break;
+                                            }
                                         }
 
-                                        if (inviteUserName != null)
+                                        if (inviteUserName != null && inviteUserName != "")
                                         {
 
                                             // Identifica outros usuários no tweet
 
                                             TwitterUser userInvite = await TwitterAPI.GetTwitterUserByUserName(inviteUserName);
 
-                                            VeraciBot.Data.AuthorizedUser newTempAuth = new Data.AuthorizedUser()
-                                            {
-                                                Id = userInvite.Id,
-                                                AuthorizedById = fullThread.AuthorA,
-                                                AuthorizationDate = DateTime.UtcNow,
-                                                Status = 2,
-                                            };
+                                            // Usuário já foi convidado?
 
-                                            dbContext.AuthorizedUsers.Add(newTempAuth);
-                                            dbContext.SaveChanges();
+                                            var inviteAuthorization = await dbContext.AuthorizedUsers.FirstOrDefaultAsync(e => e.Id == userInvite.Id);
+                                            if (inviteAuthorization != null && (inviteAuthorization.Status == AuthorizedUser.STATUS_AUTHORIZED || inviteAuthorization.Status == AuthorizedUser.STATUS_INVITED))
+                                            {
+
+                                                // Já foi convidado ou já está jogando
+                                                
+                                                VeraciBot.Data.Tweet inviteErrorTweet = new Data.Tweet()
+                                                {
+                                                    Id = tweetId,
+                                                    OriginalText = "",
+                                                    ThreadId = fullThread.Id,
+                                                    Text = "",
+                                                    AuthorId = authorId,
+                                                    OriginalAuthorId = fullThread.AuthorA,
+                                                    Result = 0
+                                                };
+                                                
+                                                dbContext.Tweets.Add(inviteErrorTweet);
+                                                dbContext.SaveChanges();
+                                                
+                                                string inviteErrorText = await OpenAIAPI.VariatePhrase(inviteErrorResponse);
+                                                
+                                                await TwitterAPI.PostReplyWithImageAsync(inviteErrorText, inviteErrorImage, tweetId);
+                                                
+                                                break;
+
+                                            }
+
+                                            if (inviteAuthorization != null && inviteAuthorization.Status == AuthorizedUser.STATUS_NOT_AUTHORIZED)
+                                            {
+
+                                                // Se o cara não estava autorizado, pode ser convidado de novo... Atualiza autorização para convidado
+
+                                                inviteAuthorization.AuthorizedById = fullThread.AuthorA;
+                                                inviteAuthorization.AuthorizationDate = DateTime.UtcNow;
+                                                inviteAuthorization.Status = AuthorizedUser.STATUS_INVITED;
+
+                                                dbContext.AuthorizedUsers.Update(inviteAuthorization);
+                                                dbContext.SaveChanges();
+
+                                            }
+                                            else
+                                            {
+
+                                                // Cria autorização temporária para o usuário convidado
+
+                                                VeraciBot.Data.AuthorizedUser newTempAuth = new Data.AuthorizedUser()
+                                                {
+                                                    Id = userInvite.Id,
+                                                    AuthorizedById = fullThread.AuthorA,
+                                                    AuthorizationDate = DateTime.UtcNow,
+                                                    Status = AuthorizedUser.STATUS_INVITED
+                                                };
+
+                                                dbContext.AuthorizedUsers.Add(newTempAuth);
+                                                dbContext.SaveChanges();
+
+                                            }
 
                                             // Personaliza o convite com o nome do usuário
 
                                             inviteText = inviteUserName + " " + inviteText;
 
-                                            await TwitterAPI.PostReplyWithImageAsync(inviteText, helpImage[cmd.Language], tweetId);
+                                            await TwitterAPI.PostReplyWithImageAsync(inviteText, inviteImage, tweetId);
 
                                         }
                                         else
                                         {
 
-                                            // Erro não chamou um usuario
+                                            // Não marcou outro usuário. Burro!
 
-
-                                        }
-                                        break;
-
-                                    case 5: // Aceitar convite
-
-                                        if (authorization.Status == 2)
-                                        {
-
-                                            VeraciBot.Data.Tweet AcceptInviteTweet = new Data.Tweet()
+                                            VeraciBot.Data.Tweet inviteNoUserTweet = new Data.Tweet()
                                             {
                                                 Id = tweetId,
                                                 OriginalText = "",
@@ -403,126 +477,181 @@ namespace VeraciBot
                                                 Result = 0
                                             };
 
-                                            dbContext.Tweets.Add(AcceptInviteTweet);
+                                            dbContext.Tweets.Add(inviteNoUserTweet);
                                             dbContext.SaveChanges();
 
-                                            string acceptText = await OpenAIAPI.VariatePhrase(acceptResponse[cmd.Language]);
+                                            string inviteNoUserText = await OpenAIAPI.VariatePhrase(inviteNoUserResponse);
 
-                                            // Identifica outros usuários no tweet
-
-
-                                            // TEM que alterar a autorização para definitiva
-                                            // TEM que checar autoriza'~oes temporarias e definitias
-
-                                            TwitterUser user = await TwitterAPI.GetTwitterUserById(authorId);
-
-                                            VeraciBot.Data.AuthorizedUser newAuth = new Data.AuthorizedUser()
-                                            {
-                                                Id = authorId,
-                                                AuthorizedById = fullThread.AuthorA,
-                                                AuthorizationDate = DateTime.UtcNow,
-                                                Status = 1,
-                                            };
-
-                                            dbContext.AuthorizedUsers.Add(newAuth);
-                                            dbContext.SaveChanges();
-
-                                            await TwitterAPI.PostReplyWithImageAsync(acceptText, helpImage[cmd.Language], tweetId);
+                                            await TwitterAPI.PostReplyWithImageAsync(inviteNoUserText, inviteNoUserImage, tweetId);
 
                                         }
+                                        break;
+
+                                    case OpenAIAPI.CMD_ACCEPT_INVITE: // Aceitar convite
+
+                                        VeraciBot.Data.Tweet AcceptInviteTweet = new Data.Tweet()
+                                        {
+                                            Id = tweetId,
+                                            OriginalText = "",
+                                            ThreadId = fullThread.Id,
+                                            Text = "",
+                                            AuthorId = authorId,
+                                            OriginalAuthorId = fullThread.AuthorA,
+                                            Result = 0
+                                        };
+
+                                        dbContext.Tweets.Add(AcceptInviteTweet);
+                                        dbContext.SaveChanges();
+
+                                        // Atualiza autorização para definitiva
+
+                                        if (authorization != null)
+                                        {
+
+                                            authorization.Status = AuthorizedUser.STATUS_AUTHORIZED;
+
+                                            dbContext.AuthorizedUsers.Update(authorization);
+                                            dbContext.SaveChanges();
                                         
+                                        }
+
+                                        // Coloca resposta
+
+                                        string acceptText = await OpenAIAPI.VariatePhrase(acceptResponse);
+
+                                        await TwitterAPI.PostReplyWithImageAsync(acceptText, acceptImage, tweetId);
+
+                                        break;
+
+                                    case OpenAIAPI.CMD_REFUSE_INVITE: // Não Aceitar convite
+
+                                        VeraciBot.Data.Tweet NoAcceptInviteTweet = new Data.Tweet()
+                                        {
+                                            Id = tweetId,
+                                            OriginalText = "",
+                                            ThreadId = fullThread.Id,
+                                            Text = "",
+                                            AuthorId = authorId,
+                                            OriginalAuthorId = fullThread.AuthorA,
+                                            Result = 0
+                                        };
+
+                                        dbContext.Tweets.Add(NoAcceptInviteTweet);
+                                        dbContext.SaveChanges();
+
+                                        // Atualiza autorização para definitiva
+
+                                        if (authorization != null)
+                                        {
+
+                                            authorization.Status = AuthorizedUser.STATUS_NOT_AUTHORIZED;
+
+                                            dbContext.AuthorizedUsers.Update(authorization);
+                                            dbContext.SaveChanges();
+
+                                        }
+
+                                        // Coloca resposta
+
+                                        string noAcceptText = await OpenAIAPI.VariatePhrase(noAcceptResponse);
+
+                                        await TwitterAPI.PostReplyWithImageAsync(noAcceptText, noAcceptImage, tweetId);
+
                                         break;
 
                                 }
 
-                                continue;
+                                // Se for tweet simples, não faz mais nada. O resto só se aplica a threads
 
-                            }
+                                if (isSingleTweet)
+                                    continue;
 
-                            // Não responder a mesma thread
+                                // Outros comandos somente em threads
 
-                            var previousThread = await dbContext.Tweets.FirstOrDefaultAsync(e => e.ThreadId == fullThread.Id);
-                            if (previousThread != null)
-                            {
-                                Console.WriteLine($"Thread {tweetId} already processed.");
-                                continue;
-                            }
+                                var previousThread = await dbContext.Tweets.FirstOrDefaultAsync(e => e.ThreadId == fullThread.Id);
+                                if (previousThread != null)
+                                {
+                                    Console.WriteLine($"Thread {tweetId} already processed.");
+                                    continue;
+                                }
 
-                            // Checa se tem crédito
+                                // Checa se tem crédito
 
-                            TwitterAPI.TwitterUser userAuthorA = await TwitterAPI.GetTwitterUserById(fullThread.AuthorA);
-                            TwitterAPI.TwitterUser userAuthorB = await TwitterAPI.GetTwitterUserById(fullThread.AuthorB);
+                                TwitterAPI.TwitterUser userAuthorA = await TwitterAPI.GetTwitterUserById(fullThread.AuthorA);
+                                TwitterAPI.TwitterUser userAuthorB = await TwitterAPI.GetTwitterUserById(fullThread.AuthorB);
 
-                            TweetAuthor authorA = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorA, userAuthorA.Username, userAuthorA.Name);
-                            TweetAuthor authorB = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorB, userAuthorB.Username, userAuthorB.Name);
+                                TweetAuthor authorA = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorA, userAuthorA.Username, userAuthorA.Name);
+                                TweetAuthor authorB = await TweetAuthor.GetTweetAuthor(dbContext, fullThread.AuthorB, userAuthorB.Username, userAuthorB.Name);
 
-                            fullThread.AuthorA = authorA.UserName;
-                            fullThread.AuthorB = authorB.UserName;
+                                fullThread.AuthorA = authorA.UserName;
+                                fullThread.AuthorB = authorB.UserName;
 
-                            if (authorB.Value <= 0)
-                            {
+                                if (authorB.Value <= 0)
+                                {
 
-                                Console.WriteLine($"Author {authorB.UserName} do not have credit.");
+                                    Console.WriteLine($"Author {authorB.UserName} do not have credit.");
 
-                                VeraciBot.Data.Tweet notTweet = new Data.Tweet()
+                                    VeraciBot.Data.Tweet notTweet = new Data.Tweet()
+                                    {
+                                        Id = tweetId,
+                                        OriginalText = "",
+                                        ThreadId = fullThread.Id,
+                                        Text = "",
+                                        AuthorId = authorId,
+                                        OriginalAuthorId = fullThread.AuthorA,
+                                        Result = 0
+                                    };
+
+                                    dbContext.Tweets.Add(notTweet);
+                                    dbContext.SaveChanges();
+
+                                    string notImgem = "img/nao.jpg";
+                                    string notResponse = "Você não tem crédito para usar o VERACIBOT, precisa se comportar melhor! sinto muito!";
+
+                                    notResponse = notResponse + "\n\n" + authorB.GetDescription();
+
+                                    await TwitterAPI.PostReplyWithImageAsync(notResponse, notImgem, tweetId);
+
+                                    continue;
+
+                                }
+
+                                // Chama o CHAT GPT
+
+                                OpenAIAPI.FullEvaluation result = await OpenAIAPI.CheckThread(fullThread);
+                                if (result == null)
+                                {
+                                    Console.WriteLine($"Thread {fullThread.Id} failed to check.");
+                                    continue;
+                                }
+
+                                // Prepara a resposta
+
+                                VeraciBot.Data.Tweet fullResponseTweet = new Data.Tweet()
                                 {
                                     Id = tweetId,
-                                    OriginalText = "",
                                     ThreadId = fullThread.Id,
-                                    Text = "",
-                                    AuthorId = authorId,
+                                    Text = fullThread.GetStartB(),
+                                    OriginalText = fullThread.GetStartA(),
+                                    AuthorId = fullThread.AuthorB,
                                     OriginalAuthorId = fullThread.AuthorA,
-                                    Result = 0
+                                    Date = DateTime.UtcNow,
+                                    Result = result.Result
                                 };
 
-                                dbContext.Tweets.Add(notTweet);
+                                fullResponseTweet.ComputeAuthors(dbContext).Wait();
+
+                                dbContext.Tweets.Add(fullResponseTweet);
                                 dbContext.SaveChanges();
 
-                                string notImgem = "img/nao.jpg";
-                                string notResponse = "Você não tem crédito para usar o VERACIBOT, precisa se comportar melhor! sinto muito!";
+                                string fullResponseImage = "img/resp" + result.Result + ".jpg";
+                                string fullResponseText = result.Response;
 
-                                notResponse = notResponse + "\n\n" + authorB.GetDescription();
+                                fullResponseText = "@" + authorA.UserName + ": " + fullResponseText + "\n\n" + authorA.GetDescription() + "\n" + authorB.GetDescription();
 
-                                await TwitterAPI.PostReplyWithImageAsync(notResponse, notImgem, tweetId);
-
-                                continue;
+                                await TwitterAPI.PostReplyWithImageAsync(fullResponseText, fullResponseImage, tweetId);
 
                             }
-
-                            // Chama o CHAT GPT
-
-                            OpenAIAPI.FullEvaluation result = await OpenAIAPI.CheckThread(fullThread);
-                            if (result == null)
-                            {
-                                Console.WriteLine($"Thread {fullThread.Id} failed to check.");
-                                continue;
-                            }
-
-                            // Prepara a resposta
-
-                            VeraciBot.Data.Tweet fullResponseTweet = new Data.Tweet()
-                            {
-                                Id = tweetId,
-                                ThreadId = fullThread.Id,
-                                Text = fullThread.GetStartB(),
-                                OriginalText = fullThread.GetStartA(),
-                                AuthorId = fullThread.AuthorB,
-                                OriginalAuthorId = fullThread.AuthorA,
-                                Date = DateTime.UtcNow,
-                                Result = result.Result
-                            };
-
-                            fullResponseTweet.ComputeAuthors(dbContext).Wait();
-
-                            dbContext.Tweets.Add(fullResponseTweet);
-                            dbContext.SaveChanges();
-
-                            string fullResponseImage = "img/resp" + result.Result + ".jpg";
-                            string fullResponseText = result.Response;
-
-                            fullResponseText = "@" + authorA.UserName + ": " + fullResponseText + "\n\n" + authorA.GetDescription() + "\n" + authorB.GetDescription();
-
-                            await TwitterAPI.PostReplyWithImageAsync(fullResponseText, fullResponseImage, tweetId);
 
                         }
 

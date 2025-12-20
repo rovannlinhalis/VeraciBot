@@ -27,7 +27,7 @@ namespace VeraciBot.Data
         /// <summary>
         /// Autorizado mesmo?
         /// </summary>
-        public int Status { get; set; } = 1; // 1 = Ativo, 0 = Inativo, 2 = Convite enviado
+        public int Status { get; set; } = STATUS_AUTHORIZED; // 0 = Não, 1 = Sim, 2 = Convidado
 
         /// <summary>
         /// Autorização máxima por usuário
@@ -38,6 +38,11 @@ namespace VeraciBot.Data
         /// Número de autorizações disponíveis   
         /// </summary>
         public int NumberOfAuthorizations { get; set; } = MaxAuthorizationsPerUser;
+
+        // Situação
+        public const int STATUS_NOT_AUTHORIZED = 0;
+        public const int STATUS_AUTHORIZED = 1;
+        public const int STATUS_INVITED = 2;
 
     }
 

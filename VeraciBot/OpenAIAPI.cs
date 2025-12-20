@@ -12,31 +12,42 @@ namespace VeraciBot
         public class IdentifiedCommand
         {
 
-            public int Result { get; set; } = 0; // 0 = Não Identificado, 1 = Auda, 2 = Pontuação, 3 = Scoreboard
+            public int Result { get; set; } = 0; // 0 = Não Identificado, 1 = Auda, 2 = Pontuação, 3 = Scoreboard, etc vide abaixo
 
-            public int Language { get; set; } = 0;
+            public string Language { get; set; } = "pt";
 
         }
 
         // Prompts para identificação de comando
 
-        public static string cmdPromptLanguage = "Você deve identificar no prompt do usuário qual a lingua usada. Responda com " +
-                                                    "0=Não sei, 1=Inglês, 2=Portugues, 3=Espanhol, 4=Alemão, 5=Frances, 6=Outra. ";
-
-        public static string cmdPromptCmdSingle = "Identifique também o que o usuário quer de resposta do sistema entre " +
+        public static string cmdPromptCmdSingle = "Identifique no prompt o que o usuário quer de resposta do sistema entre " +
                                                     "1='Ajuda, como funciona o sistema', " +
                                                     "2='Ver minha pontuação', " +
                                                     "3='Ver o quadro de líderes', " +
-                                                    "4='Quero convidar outra pessoa', " +
-                                                    "5='Aceito o convite' ";
+                                                    "10='Quero convidar outra pessoa', " +
+                                                    "20='Aceito o convite' " +
+                                                    "21='Não aceito o convite' ";
 
-        public static string cmdPromptCmdThread = "6='Acho que esse conteudo é falso', " +
-                                                    "7='Estou argumentando algo diferente ao conteúdo anterior', " +
-                                                    "8='Quem está certo nessa discussão' ";
+        public static string cmdPromptCmdThread = "30='Acho que esse conteudo é falso', " +
+                                                    "31='Estou argumentando algo diferente ao conteúdo anterior', " +
+                                                    "32='Quem está certo nessa discussão' ";
+
+        public const int CMD_UNKNOWN = 0;
+        public const int CMD_HELP = 1;
+        public const int CMD_SCORE = 2;
+        public const int CMD_SCOREBOARD = 3;       
+        public const int CMD_INVITE = 10;
+        public const int CMD_ACCEPT_INVITE = 20;
+        public const int CMD_REFUSE_INVITE = 21;
+        public const int CMD_THREAD_FALSE = 30;
+        public const int CMD_THREAD_ARGUE = 31;
+        public const int CMD_THREAD_WHOISRIGHT = 32;
 
         public static string cmdPromptCmdEnd = "ou então 0 se o comando não identificado ou qualquer outro comando.";
 
-        public static string cmdPromptCmdFinal = "Responda com apenas dois números separados por vírgula, o primeiro para a lingua e o segundo para o comando.";
+        public static string cmdPromptLanguage = "Você deve identificar qual a lingua usada pelo usuário. ";
+
+        public static string cmdPromptCmdFinal = "Responda com o número do comando, seguido da lingua, separados por vírgula.";
 
         /// <summary>
         /// Identifica o comando do usuário
@@ -47,7 +58,25 @@ namespace VeraciBot
         public static async Task<IdentifiedCommand> CheckCommand(string commandstr, bool issingle)
         {
 
-            IdentifiedCommand resp = new IdentifiedCommand() { Language = 0, Result = 0 };
+            IdentifiedCommand resp = new IdentifiedCommand() { Language = "pt", Result = 0 };
+
+            // Se comando é vazio, só tem duas possibilidades, não precisa perguntar pro chatgpt
+
+            if (commandstr == null || commandstr =="" || commandstr.Length < 5)
+            {
+
+                if(issingle)
+                    resp.Result = CMD_HELP;
+                else
+                    resp.Result = CMD_THREAD_FALSE;
+
+                resp.Language = ""; // Não tem como saber a lingua (pegar pelo usuário) 
+
+                return resp;
+
+            }
+
+            // Chama OpenAI para identificar o comando
 
             try
             {
@@ -88,13 +117,15 @@ namespace VeraciBot
                 if (baseResult == null || baseResult.Length < 3 || !baseResult.Contains(","))                
                     return resp; // Resposta inválida
 
-                string[] numberPart = baseResult.Split(","); // Pega apenas o primeiro caractere da resposta
+                // Pega comando e lingua
+
+                string[] numberPart = baseResult.Split(","); 
 
                 if (numberPart.Length > 0)
-                    resp.Language = int.TryParse(numberPart[0].Trim(), out int cmd) ? cmd : 0;
+                    resp.Result = int.TryParse(numberPart[0].Trim(), out int cmd) ? cmd : 0;
 
                 if (numberPart.Length > 1)
-                    resp.Result = int.TryParse(numberPart[1].Trim(), out int cmd) ? cmd : 0;
+                    resp.Language = numberPart[1].Trim();
 
                 return resp;
 
@@ -118,7 +149,7 @@ namespace VeraciBot
 
             public string Response { get; set; } = string.Empty;
 
-            public int Language { get; set; } = 0;
+            public string Language { get; set; } = "";
 
         }
 
