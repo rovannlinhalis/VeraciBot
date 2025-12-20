@@ -566,7 +566,7 @@ namespace VeraciBot
                                 if (isSingleTweet)
                                     continue;
 
-                                // Outros comandos somente em threads
+                                // Já tratou essa thread?
 
                                 var previousThread = await dbContext.Tweets.FirstOrDefaultAsync(e => e.ThreadId == fullThread.Id);
                                 if (previousThread != null)

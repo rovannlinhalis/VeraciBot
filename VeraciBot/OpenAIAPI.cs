@@ -208,6 +208,8 @@ namespace VeraciBot
         public static async Task<string> VariatePhrase(string phrase)
         {
 
+            return phrase; // Desativado temporariamente
+
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AppKeys.keys.openAIKey);
 
