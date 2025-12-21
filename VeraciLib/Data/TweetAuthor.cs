@@ -50,7 +50,7 @@ namespace VeraciBot.Data
 
             if (author == null)
             {
-                
+
                 author = new TweetAuthor()
                 {
                     Id = id,
@@ -62,7 +62,7 @@ namespace VeraciBot.Data
                 dbContext.TweetAuthors.Add(author);
                 dbContext.SaveChanges();
 
-            } 
+            }
             else
             {
 
@@ -77,13 +77,13 @@ namespace VeraciBot.Data
                 if (name != "" && author.Name != name)
                 {
                     author.Name = name;
-                    changed = true; 
+                    changed = true;
                 }
 
                 if (changed)
                 {
                     dbContext.TweetAuthors.Update(author);
-                    dbContext.SaveChanges();    
+                    dbContext.SaveChanges();
                 }
 
             }
@@ -92,6 +92,17 @@ namespace VeraciBot.Data
 
         }
 
+        /// <summary>
+        /// Tem que fazer...
+        /// </summary>
+        /// <param name="max"></param>
+        /// <returns></returns>
+        public static string GetFullScoreBoard(int max)
+        {
+
+            return "";
+
+        }
 
     }
 

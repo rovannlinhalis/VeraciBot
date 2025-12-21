@@ -205,7 +205,7 @@ namespace VeraciBot
         }
 
 
-        public static async Task<string> VariatePhrase(string phrase)
+        public static async Task<string> TranslatePhrase(string phrase, string lang)
         {
 
             return phrase; // Desativado temporariamente
@@ -218,10 +218,10 @@ namespace VeraciBot
                 model = "gpt-4o",
                 messages = new[]
                 {
-                    new { role = "system", content = "Retorne a mesma frase, com o mesmo sentido, na mesma lingua, mas variando um pouco a frase em si, trocando algumas palavras por sinônimos ou invertendo ordem das palavras" },
+                    new { role = "system", content = "Retorne a mesma frase, com o mesmo sentido, traduzindo para a lingua \"" + lang + "\"" },
                     new { role = "user", content = phrase }
                 },
-                temperature = 0.2
+                temperature = 4.0
             };
 
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
