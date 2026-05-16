@@ -12,20 +12,12 @@ namespace VeraciBot.App.Services
         private readonly string _rootPathWithSeparator;
         private readonly string _publicPath;
 
-        public LocalBlobStorageService(IWebHostEnvironment environment, IConfiguration configuration)
+        public LocalBlobStorageService(IConfiguration configuration)
         {
-            var webRootPath = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
-            var configuredRootPath = configuration["BlobStorage:LocalPath"];
-
-            _rootPath = Path.GetFullPath(
-                string.IsNullOrWhiteSpace(configuredRootPath)
-                    ? Path.Combine(webRootPath, "uploads")
-                    : configuredRootPath);
-
+            _rootPath = LocalBlobStoragePathResolver.ResolveRootPath(configuration);
             _rootPathWithSeparator = _rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 + Path.DirectorySeparatorChar;
-
-            _publicPath = NormalizePublicPath(configuration["BlobStorage:PublicPath"] ?? "uploads");
+            _publicPath = LocalBlobStoragePathResolver.ResolvePublicPath(configuration);
 
             Directory.CreateDirectory(_rootPath);
         }
@@ -246,11 +238,5 @@ namespace VeraciBot.App.Services
                 objectName.Split('/').Select(Uri.EscapeDataString));
         }
 
-        private static string NormalizePublicPath(string publicPath)
-        {
-            return string.IsNullOrWhiteSpace(publicPath)
-                ? string.Empty
-                : publicPath.Trim().Replace('\\', '/').Trim('/');
-        }
     }
 }

@@ -137,8 +137,8 @@ Chaves importantes:
 - `Authentication:Twitter:ClientId`
 - `Authentication:Twitter:ClientSecret`
 - `TwitterApi:UserId`
-- `BlobStorage:LocalPath`
-- `BlobStorage:PublicPath`
+- `BlobStorage:LocalPath` (padrao: `Images`, relativo ao diretorio base da aplicacao)
+- `BlobStorage:PublicPath` (padrao: `Images`)
 
 Exemplo completo: `VeraciBot.App/secrets.example.json`
 

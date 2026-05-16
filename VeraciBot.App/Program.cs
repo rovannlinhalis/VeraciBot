@@ -309,15 +309,11 @@ namespace VeraciBot.App
 
         private static void UseConfiguredLocalBlobStaticFiles(WebApplication app)
         {
-            var configuredRootPath = app.Configuration["BlobStorage:LocalPath"];
-            if (string.IsNullOrWhiteSpace(configuredRootPath))
-                return;
-
-            var publicPath = NormalizePublicPath(app.Configuration["BlobStorage:PublicPath"] ?? "uploads");
+            var rootPath = LocalBlobStoragePathResolver.ResolveRootPath(app.Configuration);
+            var publicPath = LocalBlobStoragePathResolver.ResolvePublicPath(app.Configuration);
             if (string.IsNullOrWhiteSpace(publicPath))
                 return;
 
-            var rootPath = Path.GetFullPath(configuredRootPath);
             Directory.CreateDirectory(rootPath);
 
             app.UseStaticFiles(new StaticFileOptions
@@ -325,13 +321,6 @@ namespace VeraciBot.App
                 FileProvider = new PhysicalFileProvider(rootPath),
                 RequestPath = "/" + publicPath
             });
-        }
-
-        private static string NormalizePublicPath(string publicPath)
-        {
-            return string.IsNullOrWhiteSpace(publicPath)
-                ? string.Empty
-                : publicPath.Trim().Replace('\\', '/').Trim('/');
         }
 
         private static void AddConfiguredExternalAuthentication(IServiceCollection services, IConfiguration configuration, string connectionString)
