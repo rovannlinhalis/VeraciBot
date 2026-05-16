@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>fa2fd682-87c2-4c91-be8f-ab067df07182</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Forms" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Cryptography.Internal" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Cryptography.KeyDerivation" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Metadata" Version="9.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Features" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appkeys.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>   
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciLib\bin\$(ConfigurationName)\net9.0&#xD;&#xA;copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciBot\bin\$(ConfigurationName)\net9.0&#xD;&#xA;copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciApp\bin\$(ConfigurationName)\net9.0&#xD;&#xA;copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciBot&#xD;&#xA;copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciApp" />
+    <Exec Command="copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciBot\bin\$(ConfigurationName)\net9.0" />
+    <Exec Command="copy $(ProjectDir)appkeys.json $(SolutionDir)VeraciApp\bin\$(ConfigurationName)\net9.0" />
+  </Target>
+
+</Project>
