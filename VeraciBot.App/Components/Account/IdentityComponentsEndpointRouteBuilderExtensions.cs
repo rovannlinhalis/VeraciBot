@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
-using System.Security.Claims;
 using System.Text.Json;
 using VeraciBot.App.Components.Account.Pages;
 using VeraciBot.App.Components.Account.Pages.Manage;
@@ -41,12 +40,11 @@ namespace Microsoft.AspNetCore.Routing
             });
 
             accountGroup.MapPost("/Logout", async (
-                ClaimsPrincipal user,
                 [FromServices] SignInManager<ApplicationUser> signInManager,
                 [FromForm] string returnUrl) =>
             {
                 await signInManager.SignOutAsync();
-                return TypedResults.LocalRedirect($"~/{returnUrl}");
+                return TypedResults.LocalRedirect(NormalizeLocalReturnUrl(returnUrl));
             });
 
             var manageGroup = accountGroup.MapGroup("/Manage").RequireAuthorization();
@@ -108,6 +106,44 @@ namespace Microsoft.AspNetCore.Routing
             });
 
             return accountGroup;
+        }
+
+        private static string NormalizeLocalReturnUrl(string returnUrl)
+        {
+            if (string.IsNullOrWhiteSpace(returnUrl))
+            {
+                return "/";
+            }
+
+            returnUrl = returnUrl.Trim();
+            if (IsLocalUrl(returnUrl))
+            {
+                return returnUrl;
+            }
+
+            if (returnUrl[0] is not '/' and not '~' and not '\\'
+                && !returnUrl.Contains('\\')
+                && !Uri.TryCreate(returnUrl, UriKind.Absolute, out _))
+            {
+                return $"/{returnUrl}";
+            }
+
+            return "/";
+        }
+
+        private static bool IsLocalUrl(string url)
+        {
+            if (url[0] == '/')
+            {
+                return url.Length == 1 || url[1] is not '/' and not '\\';
+            }
+
+            if (url[0] == '~' && url.Length > 1 && url[1] == '/')
+            {
+                return url.Length == 2 || url[2] is not '/' and not '\\';
+            }
+
+            return false;
         }
     }
 }
