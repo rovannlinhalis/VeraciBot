@@ -1,0 +1,421 @@
+@page "/admin/settings"
+@rendermode InteractiveServer
+@attribute [RoleRequirement(EApplicationRoles.Admin)]
+@implements IDisposable
+
+@using Microsoft.AspNetCore.WebUtilities
+@using VeraciBot.App.Services
+
+@inject ApplicationSettingsService SettingsService
+@inject TwitterBotAuthenticationService BotAuthenticationService
+@inject NavigationManager Navigation
+
+<PageTitle>Settings</PageTitle>
+
+<h1>Settings</h1>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="alert @messageCss" role="alert">@message</div>
+}
+
+@if (isLoading)
+{
+    <p>Carregando...</p>
+}
+else
+{
+    <EditForm Model="settings" OnSubmit="SaveAsync" FormName="application-settings">
+        @if (OrderedGroups.Count == 0)
+        {
+            <p>Nenhuma setting configurada.</p>
+        }
+        else
+        {
+            <ul class="nav nav-tabs settings-tabs" role="tablist">
+                @foreach (var group in OrderedGroups)
+                {
+                    var isActive = group.Key == activeGroupKey;
+
+                    <li class="nav-item" role="presentation">
+                        <button type="button"
+                                class="nav-link @(isActive ? "active" : null)"
+                                role="tab"
+                                aria-selected="@isActive"
+                                @onclick="() => SelectGroup(group.Key)">
+                            @group.Name
+                        </button>
+                    </li>
+                }
+            </ul>
+
+            @if (ActiveGroup is not null)
+            {
+                <div class="settings-tab-panel">
+                    @if (IsTwitterGroupActive)
+                    {
+                        <section class="settings-section twitter-bot-auth-section">
+                            <div class="settings-section-header twitter-bot-auth-header">
+                                <div>
+                                    <h2>Conta bot do Twitter</h2>
+                                    <p class="twitter-bot-auth-description">
+                                        OAuth da conta usada para ler mencoes e postar respostas.
+                                    </p>
+                                </div>
+                                <span class="badge @TwitterBotStatusBadgeClass">@TwitterBotStatusText</span>
+                            </div>
+
+                            <div class="twitter-bot-auth-layout">
+                                <dl class="twitter-bot-auth-details">
+                                    <div>
+                                        <dt>Conta</dt>
+                                        <dd>@TwitterBotDisplayName</dd>
+                                    </div>
+                                    <div>
+                                        <dt>User ID</dt>
+                                        <dd>@TwitterBotUserId</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Autorizado em</dt>
+                                        <dd>@TwitterBotAuthorizedAtText</dd>
+                                    </div>
+                                </dl>
+
+                                <div class="twitter-bot-auth-actions">
+                                    @if (!twitterBotStatus.HasApplicationCredentials)
+                                    {
+                                        <div class="alert alert-warning mb-0" role="alert">
+                                            Salve o Twitter OAuth 2.0 Client ID e o Twitter OAuth 2.0 Client Secret antes de autenticar.
+                                        </div>
+                                        <button type="button" class="btn btn-primary" disabled>
+                                            Autenticar conta bot
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        @if (!twitterBotStatus.IsAuthenticated)
+                                        {
+                                            <div class="alert alert-warning mb-0" role="alert">
+                                                A conta bot ainda nao foi autenticada.
+                                            </div>
+                                        }
+                                        else if (!twitterBotStatus.IsInternallyAuthorized)
+                                        {
+                                            <div class="alert alert-warning mb-0" role="alert">
+                                                Tokens encontrados, mas a conta ainda nao esta autorizada internamente.
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="alert alert-success mb-0" role="alert">
+                                                A conta bot esta autenticada e autorizada internamente.
+                                            </div>
+                                        }
+
+                                        <a class="btn btn-primary" href="@TwitterBotAuthStartUrl" data-enhance-nav="false">
+                                            @(twitterBotStatus.IsAuthenticated ? "Reautenticar conta bot" : "Autenticar conta bot")
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        </section>
+                    }
+
+                    @foreach (var subgroup in ActiveGroup.Subgroups)
+                    {
+                        <section class="settings-section">
+                            <div class="settings-section-header">
+                                <h2>@subgroup.Name</h2>
+                            </div>
+
+                            <div class="settings-grid">
+                                @foreach (var field in subgroup.Fields)
+                                {
+                                    <DynamicField Field="field" FieldChanged="OnFieldChanged" />
+                                }
+                            </div>
+                        </section>
+                    }
+                </div>
+            }
+        }
+
+        <div class="settings-actions">
+            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                @(isSaving ? "Salvando..." : "Salvar settings")
+            </button>
+            <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="ReloadAsync">
+                Recarregar
+            </button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    private List<ApplicationSettings> settings = [];
+    private string activeGroupKey;
+    private bool isLoading = true;
+    private bool isSaving;
+    private string message;
+    private string messageCss = "alert-info";
+    private TwitterBotAuthenticationService.TwitterBotAuthenticationStatus twitterBotStatus = new();
+    private string lastAppliedTwitterAuthLocation;
+    private bool isDisposed;
+
+    private List<SettingsGroup> OrderedGroups => settings
+        .GroupBy(setting => NormalizeKey(setting.Group))
+        .Select(group => new SettingsGroup
+        {
+            Key = group.Key,
+            Name = DisplayGroup(group.FirstOrDefault()?.Group),
+            Order = group.Min(setting => setting.Order),
+            Subgroups = group
+                .GroupBy(setting => NormalizeKey(setting.Subgroup))
+                .Select(subgroup => new SettingsSubgroup
+                {
+                    Key = subgroup.Key,
+                    Name = DisplaySubgroup(subgroup.FirstOrDefault()?.Subgroup),
+                    Order = subgroup.Min(setting => setting.Order),
+                    Fields = subgroup.OrderBy(setting => setting.Order).ToList()
+                })
+                .OrderBy(subgroup => subgroup.Order)
+                .ThenBy(subgroup => subgroup.Name)
+                .ToList()
+        })
+        .OrderBy(group => group.Order)
+        .ThenBy(group => group.Name)
+        .ToList();
+
+    private SettingsGroup ActiveGroup => OrderedGroups.FirstOrDefault(group => group.Key == activeGroupKey) ?? OrderedGroups.FirstOrDefault();
+    private bool IsTwitterGroupActive => string.Equals(activeGroupKey, "Twitter", StringComparison.OrdinalIgnoreCase);
+    private string TwitterBotAuthStartUrl => "/admin/settings/twitter/bot/start";
+    private string TwitterBotStatusText => twitterBotStatus.IsAuthenticated && twitterBotStatus.IsInternallyAuthorized
+        ? "Autenticada"
+        : twitterBotStatus.HasApplicationCredentials
+            ? "Pendente"
+            : "Credenciais ausentes";
+    private string TwitterBotStatusBadgeClass => twitterBotStatus.IsAuthenticated && twitterBotStatus.IsInternallyAuthorized
+        ? "text-bg-success"
+        : twitterBotStatus.HasApplicationCredentials
+            ? "text-bg-warning"
+            : "text-bg-secondary";
+    private string TwitterBotDisplayName => !string.IsNullOrWhiteSpace(twitterBotStatus.Username)
+        ? $"@{twitterBotStatus.Username}"
+        : !string.IsNullOrWhiteSpace(twitterBotStatus.Name)
+            ? twitterBotStatus.Name
+            : "-";
+    private string TwitterBotUserId => string.IsNullOrWhiteSpace(twitterBotStatus.UserId) ? "-" : twitterBotStatus.UserId;
+    private string TwitterBotAuthorizedAtText => twitterBotStatus.AuthorizedAtUtc.HasValue
+        ? twitterBotStatus.AuthorizedAtUtc.Value.ToUniversalTime().ToString("dd/MM/yyyy HH:mm 'UTC'")
+        : "-";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        ApplyTwitterAuthQuery(Navigation.Uri);
+        await LoadAsync();
+        isLoading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        settings = (await SettingsService.GetAllAsync(byPassRoles: true)).ToList();
+        twitterBotStatus = await BotAuthenticationService.GetStatusAsync();
+        EnsureActiveGroup();
+    }
+
+    private async Task ReloadAsync()
+    {
+        ClearMessage();
+        await LoadAsync();
+    }
+
+    private Task OnFieldChanged(VeraciBot.App.Entities.DynamicField field)
+    {
+        return Task.CompletedTask;
+    }
+
+    private void SelectGroup(string groupKey)
+    {
+        activeGroupKey = groupKey;
+    }
+
+    private async Task SaveAsync()
+    {
+        ClearMessage();
+        isSaving = true;
+
+        try
+        {
+            await SettingsService.UpdateAsync(settings);
+            await LoadAsync();
+            SetSuccess("Settings salvas com sucesso.");
+        }
+        catch (Exception ex)
+        {
+            SetError($"Nao foi possivel salvar as settings: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static string DisplayGroup(string group)
+    {
+        return string.IsNullOrWhiteSpace(group) ? "Geral" : group;
+    }
+
+    private static string DisplaySubgroup(string subgroup)
+    {
+        return string.IsNullOrWhiteSpace(subgroup) ? "Geral" : subgroup;
+    }
+
+    private static string NormalizeKey(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "" : value.Trim();
+    }
+
+    private void EnsureActiveGroup()
+    {
+        var groups = OrderedGroups;
+        if (groups.Count == 0)
+        {
+            activeGroupKey = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(activeGroupKey) || groups.All(group => group.Key != activeGroupKey))
+        {
+            activeGroupKey = groups.First().Key;
+        }
+    }
+
+    private void SetSuccess(string value)
+    {
+        message = value;
+        messageCss = "alert-success";
+    }
+
+    private void SetError(string value)
+    {
+        message = value;
+        messageCss = "alert-danger";
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+        messageCss = "alert-info";
+    }
+
+    private void OnLocationChanged(object sender, LocationChangedEventArgs args)
+    {
+        if (isDisposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            if (isDisposed)
+            {
+                return;
+            }
+
+            if (!ApplyTwitterAuthQuery(args.Location))
+            {
+                return;
+            }
+
+            twitterBotStatus = await BotAuthenticationService.GetStatusAsync();
+            EnsureActiveGroup();
+            StateHasChanged();
+        });
+    }
+
+    private bool ApplyTwitterAuthQuery(string location)
+    {
+        var uri = Navigation.ToAbsoluteUri(location);
+        if (!IsSettingsPath(uri))
+        {
+            return false;
+        }
+
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (!query.TryGetValue("twitterBotAuth", out var authStatus))
+            return false;
+
+        if (string.Equals(lastAppliedTwitterAuthLocation, uri.AbsoluteUri, StringComparison.Ordinal))
+            return false;
+
+        lastAppliedTwitterAuthLocation = uri.AbsoluteUri;
+
+        activeGroupKey = "Twitter";
+        var status = authStatus.ToString();
+
+        if (string.Equals(status, "success", StringComparison.OrdinalIgnoreCase))
+        {
+            var username = query.TryGetValue("twitterUser", out var userValue)
+                ? userValue.ToString()
+                : string.Empty;
+            SetSuccess(string.IsNullOrWhiteSpace(username)
+                ? "Conta bot autenticada com sucesso."
+                : $"Conta bot @{username} autenticada com sucesso.");
+            return true;
+        }
+
+        if (string.Equals(status, "denied", StringComparison.OrdinalIgnoreCase))
+        {
+            var detail = query.TryGetValue("message", out var messageValue)
+                ? messageValue.ToString()
+                : string.Empty;
+            SetError(string.IsNullOrWhiteSpace(detail)
+                ? "Autenticacao do Twitter cancelada."
+                : $"Autenticacao do Twitter cancelada: {detail}");
+            return true;
+        }
+
+        if (string.Equals(status, "error", StringComparison.OrdinalIgnoreCase))
+        {
+            var detail = query.TryGetValue("message", out var messageValue)
+                ? messageValue.ToString()
+                : string.Empty;
+            SetError(string.IsNullOrWhiteSpace(detail)
+                ? "Nao foi possivel autenticar a conta bot."
+                : $"Nao foi possivel autenticar a conta bot: {detail}");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsSettingsPath(Uri uri)
+    {
+        var path = uri.AbsolutePath.TrimEnd('/');
+        return path.EndsWith("/admin/settings", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        isDisposed = true;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    private sealed class SettingsGroup
+    {
+        public string Key { get; set; }
+        public string Name { get; set; }
+        public int Order { get; set; }
+        public List<SettingsSubgroup> Subgroups { get; set; } = [];
+    }
+
+    private sealed class SettingsSubgroup
+    {
+        public string Key { get; set; }
+        public string Name { get; set; }
+        public int Order { get; set; }
+        public List<ApplicationSettings> Fields { get; set; } = [];
+    }
+}

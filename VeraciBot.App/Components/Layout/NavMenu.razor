@@ -1,0 +1,93 @@
+<div class="nav-shell">
+    <div class="top-row ps-3 navbar navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">VeraciBot</a>
+        </div>
+    </div>
+
+    <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+    <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+        <nav class="nav-menu">
+            <div class="nav-primary">
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="me">
+                                <span class="bi bi-speedometer-nav-menu" aria-hidden="true"></span> Meu painel
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="mentions">
+                                <span class="bi bi-chat-left-text-nav-menu" aria-hidden="true"></span> Mencoes
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Policy="@RolePolicies.For(EApplicationRoles.Admin)">
+                    <Authorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="admin/twitter-worker">
+                                <span class="bi bi-activity-nav-menu" aria-hidden="true"></span> Monitoramento
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="admin/dashboard">
+                                <span class="bi bi-bar-chart-nav-menu" aria-hidden="true"></span> Dashboard
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="admin/settings">
+                                <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Settings
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="admin/users">
+                                <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Usuarios
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+
+            <div class="nav-account">
+                <div class="nav-item px-3">
+                    <ThemeToggle />
+                </div>
+
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="Account/Manage">
+                                <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <form action="Account/Logout" method="post">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="ReturnUrl" value="/" />
+                                <button type="submit" class="nav-link">
+                                    <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
+                                </button>
+                            </form>
+                        </div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="Account/Register">
+                                <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="Account/Login">
+                                <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
+                            </NavLink>
+                        </div>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </nav>
+    </div>
+</div>
+

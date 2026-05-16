@@ -1,0 +1,804 @@
+@page "/admin/dashboard"
+@rendermode InteractiveServer
+@attribute [RoleRequirement(EApplicationRoles.Admin)]
+
+@using Microsoft.EntityFrameworkCore
+@using VeraciBot.App.Data
+@using VeraciBot.App.Entities
+
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Dashboard Historico</PageTitle>
+
+<h1>Dashboard Historico</h1>
+
+<EditForm Model="filters" OnSubmit="LoadAsync" FormName="admin-dashboard-filters">
+    <section class="border rounded p-3 mb-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="DashboardFrom" class="form-label">Inicio</label>
+                <InputDate @bind-Value="filters.FromDate" id="DashboardFrom" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label for="DashboardTo" class="form-label">Fim</label>
+                <InputDate @bind-Value="filters.ToDate" id="DashboardTo" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label for="DashboardUser" class="form-label">Usuario</label>
+                <InputSelect @bind-Value="filters.AuthorId" id="DashboardUser" class="form-select">
+                    <option value="">Todos os usuarios</option>
+                    @foreach (var user in userOptions)
+                    {
+                        <option value="@user.AuthorId">@user.Label</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">Filtrar</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetFiltersAsync">Limpar</button>
+            </div>
+        </div>
+    </section>
+</EditForm>
+
+@if (isLoading)
+{
+    <p>Carregando...</p>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        @foreach (var card in summaryCards)
+        {
+            <div class="col-6 col-xl-3">
+                <section class="border rounded p-3 h-100">
+                    <div class="text-muted small">@card.Title</div>
+                    <div class="fs-4 fw-semibold">@card.Value</div>
+                    @if (!string.IsNullOrWhiteSpace(card.Detail))
+                    {
+                        <div class="text-muted small mt-2">@card.Detail</div>
+                    }
+                </section>
+            </div>
+        }
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-xl-6">
+            <section class="border rounded p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                    <h2 class="h5 mb-0">Mencoes por tipo de acao</h2>
+                    <span class="badge text-bg-secondary">@totalMentions total</span>
+                </div>
+
+                @if (actionStats.Count == 0)
+                {
+                    <p class="text-muted mb-0">Sem dados no periodo.</p>
+                }
+                else
+                {
+                    @foreach (var item in actionStats)
+                    {
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center small mb-1">
+                                <span>@item.Label</span>
+                                <strong>@item.Count</strong>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar"
+                                     role="progressbar"
+                                     style="width: @GetPercent(item.Count, maxActionCount)%"
+                                     aria-valuenow="@GetPercent(item.Count, maxActionCount)"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+
+        <div class="col-xl-6">
+            <section class="border rounded p-3 h-100">
+                <h2 class="h5">Mencoes por dia</h2>
+                @if (dailyStats.Count == 0)
+                {
+                    <p class="text-muted mb-0">Sem dados no periodo.</p>
+                }
+                else
+                {
+                    <div class="d-flex align-items-end gap-2" style="height: 180px;">
+                        @foreach (var day in dailyStats)
+                        {
+                            <div class="d-flex flex-column align-items-center flex-fill h-100">
+                                <div class="text-muted small">@day.Count</div>
+                                <div class="bg-primary rounded-top w-100 mt-auto"
+                                     title="@day.DayLabel: @day.Count"
+                                     style="height: @GetPercent(day.Count, maxDailyCount)%; min-height: 4px;"></div>
+                                <div class="text-muted small mt-1">@day.Day.ToString("dd/MM")</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-xl-7">
+            <section class="border rounded p-3 h-100">
+                <h2 class="h5">Top usuarios por atividade</h2>
+                @if (topActiveUsers.Count == 0)
+                {
+                    <p class="text-muted mb-0">Sem usuarios com mencoes no periodo.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th class="text-end">Mencoes</th>
+                                    <th class="text-end">Ultima atividade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in topActiveUsers)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div>@FormatUserDisplay(user.AuthorId, user.Username)</div>
+                                            <small class="text-muted">@FormatText(user.AuthorId)</small>
+                                        </td>
+                                        <td class="text-end">@user.Count</td>
+                                        <td class="text-end">@FormatDate(user.LastActivityUtc)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+
+        <div class="col-xl-5">
+            <section class="border rounded p-3 h-100">
+                <h2 class="h5">Placar geral</h2>
+                @if (topScoreUsers.Count == 0)
+                {
+                    <p class="text-muted mb-0">Sem usuarios no placar.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Usuario</th>
+                                    <th class="text-end">Pts</th>
+                                    <th class="text-end">V/D</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var i = 0; i < topScoreUsers.Count; i++)
+                                {
+                                    var user = topScoreUsers[i];
+                                    <tr>
+                                        <td>@(i + 1)</td>
+                                        <td>@FormatUserDisplay(user.AuthorId, user.Username)</td>
+                                        <td class="text-end">@user.Score</td>
+                                        <td class="text-end">@user.Wins/@user.Losses</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-xl-7">
+            <section class="border rounded p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                    <h2 class="h5 mb-0">Top usuarios por convites</h2>
+                    <span class="badge text-bg-secondary">@totalInvites total</span>
+                </div>
+
+                @if (topInviters.Count == 0)
+                {
+                    <p class="text-muted mb-0">Sem convites no periodo.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th class="text-end">Convites</th>
+                                    <th class="text-end">Aceitos</th>
+                                    <th class="text-end">Pendentes</th>
+                                    <th class="text-end">Recusados</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var inviter in topInviters)
+                                {
+                                    <tr>
+                                        <td>@FormatUserDisplay(inviter.AuthorId, inviter.Username)</td>
+                                        <td class="text-end">@inviter.Total</td>
+                                        <td class="text-end">@inviter.Accepted</td>
+                                        <td class="text-end">@inviter.Pending</td>
+                                        <td class="text-end">@inviter.Refused</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+
+        <div class="col-xl-5">
+            <section class="border rounded p-3 h-100">
+                <h2 class="h5">Status dos convites</h2>
+                @if (inviteStatusStats.Count == 0)
+                {
+                    <p class="text-muted mb-0">Sem convites no periodo.</p>
+                }
+                else
+                {
+                    @foreach (var item in inviteStatusStats)
+                    {
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center small mb-1">
+                                <span>@item.Label</span>
+                                <strong>@item.Count</strong>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar"
+                                     role="progressbar"
+                                     style="width: @GetPercent(item.Count, maxInviteStatusCount)%"
+                                     aria-valuenow="@GetPercent(item.Count, maxInviteStatusCount)"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-12">
+            <section class="border rounded p-3 h-100">
+                <h2 class="h5">Consumo LLM por modelo</h2>
+                @if (llmModelUsage.Count == 0)
+                {
+                    <p class="text-muted mb-0">Sem consumo de tokens LLM no periodo filtrado.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Modelo</th>
+                                    <th class="text-end">Requisicoes</th>
+                                    <th class="text-end">Prompt</th>
+                                    <th class="text-end">Completion</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in llmModelUsage)
+                                {
+                                    <tr>
+                                        <td>@item.Model</td>
+                                        <td class="text-end">@item.Requests</td>
+                                        <td class="text-end">@item.PromptTokens.ToString("N0")</td>
+                                        <td class="text-end">@item.CompletionTokens.ToString("N0")</td>
+                                        <td class="text-end fw-semibold">@item.TotalTokens.ToString("N0")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly DashboardFilters filters = new();
+    private readonly List<UserFilterOption> userOptions = [];
+    private readonly List<SummaryCard> summaryCards = [];
+    private readonly List<ActionStat> actionStats = [];
+    private readonly List<DailyStat> dailyStats = [];
+    private readonly List<TopActiveUser> topActiveUsers = [];
+    private readonly List<TopScoreUser> topScoreUsers = [];
+    private readonly List<InviteStatusStat> inviteStatusStats = [];
+    private readonly List<TopInviter> topInviters = [];
+    private readonly List<LlmModelUsage> llmModelUsage = [];
+
+    private bool isLoading = true;
+    private int totalMentions;
+    private int maxActionCount = 1;
+    private int maxDailyCount = 1;
+    private int maxInviteStatusCount = 1;
+    private int totalInvites;
+    private int pendingInvites;
+    private int acceptedInvites;
+    private int refusedInvites;
+    private int llmRequests;
+    private long llmPromptTokens;
+    private long llmCompletionTokens;
+    private long llmTotalTokens;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ResetFilterValues();
+        await LoadUserOptionsAsync();
+        await LoadAsync();
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        ResetFilterValues();
+        await LoadAsync();
+    }
+
+    private void ResetFilterValues()
+    {
+        var today = DateTime.Today;
+        filters.FromDate = today.AddDays(-30);
+        filters.ToDate = today;
+        filters.AuthorId = string.Empty;
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+
+        var fromUtc = ToStartUtc(filters.FromDate);
+        var toUtc = ToExclusiveEndUtc(filters.ToDate);
+        var authorId = filters.AuthorId?.Trim() ?? string.Empty;
+
+        var query = DbContext.ProcessedMentions.AsNoTracking();
+        if (fromUtc.HasValue)
+            query = query.Where(x => x.ProcessedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(x => x.ProcessedAtUtc < toUtc.Value);
+        if (!string.IsNullOrWhiteSpace(authorId))
+            query = query.Where(x => x.AuthorId == authorId);
+
+        var mentions = await query
+            .OrderByDescending(x => x.ProcessedAtUtc)
+            .ToListAsync();
+
+        totalMentions = mentions.Count;
+        BuildActionStats(mentions);
+        BuildDailyStats(mentions);
+        await BuildTopActiveUsersAsync(mentions);
+        await BuildTopScoreUsersAsync();
+        await BuildInviteStatsAsync(fromUtc, toUtc, authorId);
+        await BuildLlmUsageAsync(fromUtc, toUtc, authorId);
+        BuildSummaryCards(mentions);
+
+        isLoading = false;
+    }
+
+    private async Task LoadUserOptionsAsync()
+    {
+        userOptions.Clear();
+
+        var users = await DbContext.AuthorizedTwitterUsers
+            .AsNoTracking()
+            .OrderBy(x => x.Username)
+            .Select(x => new UserFilterOption
+            {
+                AuthorId = x.AuthorId,
+                Username = x.Username,
+                Label = string.IsNullOrWhiteSpace(x.Username)
+                    ? x.AuthorId
+                    : "@" + x.Username
+            })
+            .ToListAsync();
+
+        var applicationUsers = await DbContext.Users
+            .AsNoTracking()
+            .Where(x => x.AuthorId != "")
+            .Select(x => new UserFilterOption
+            {
+                AuthorId = x.AuthorId,
+                Username = x.TwitterUsername,
+                Label = string.IsNullOrWhiteSpace(x.TwitterUsername)
+                    ? x.AuthorId
+                    : "@" + x.TwitterUsername
+            })
+            .ToListAsync();
+
+        foreach (var user in users.Concat(applicationUsers))
+        {
+            if (string.IsNullOrWhiteSpace(user.AuthorId))
+                continue;
+
+            if (userOptions.Any(x => x.AuthorId == user.AuthorId))
+                continue;
+
+            userOptions.Add(user);
+        }
+
+        userOptions.Sort((left, right) => string.Compare(left.Label, right.Label, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void BuildActionStats(IReadOnlyList<ProcessedMention> mentions)
+    {
+        actionStats.Clear();
+        actionStats.AddRange(mentions
+            .GroupBy(x => NormalizeResult(x.Result))
+            .Select(x => new ActionStat(x.Key, GetResultLabel(x.Key), x.Count()))
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Label));
+
+        maxActionCount = Math.Max(1, actionStats.Count == 0 ? 1 : actionStats.Max(x => x.Count));
+    }
+
+    private void BuildDailyStats(IReadOnlyList<ProcessedMention> mentions)
+    {
+        dailyStats.Clear();
+
+        var grouped = mentions
+            .GroupBy(x => x.ProcessedAtUtc.ToLocalTime().Date)
+            .OrderBy(x => x.Key)
+            .Select(x => new DailyStat(x.Key, x.Count()))
+            .ToList();
+
+        dailyStats.AddRange(grouped.TakeLast(14));
+        maxDailyCount = Math.Max(1, dailyStats.Count == 0 ? 1 : dailyStats.Max(x => x.Count));
+    }
+
+    private async Task BuildTopActiveUsersAsync(IReadOnlyList<ProcessedMention> mentions)
+    {
+        topActiveUsers.Clear();
+
+        var grouped = mentions
+            .Where(x => !string.IsNullOrWhiteSpace(x.AuthorId))
+            .GroupBy(x => x.AuthorId)
+            .Select(x => new TopActiveUser
+            {
+                AuthorId = x.Key,
+                Count = x.Count(),
+                LastActivityUtc = x.Max(item => item.ProcessedAtUtc)
+            })
+            .OrderByDescending(x => x.Count)
+            .ThenByDescending(x => x.LastActivityUtc)
+            .Take(10)
+            .ToList();
+
+        var authorIds = grouped.Select(x => x.AuthorId).ToArray();
+        var names = authorIds.Length == 0
+            ? new Dictionary<string, string>()
+            : await DbContext.AuthorizedTwitterUsers
+                .AsNoTracking()
+                .Where(x => authorIds.Contains(x.AuthorId))
+                .ToDictionaryAsync(x => x.AuthorId, x => x.Username);
+
+        foreach (var user in grouped)
+        {
+            if (names.TryGetValue(user.AuthorId, out var username))
+                user.Username = username;
+
+            topActiveUsers.Add(user);
+        }
+    }
+
+    private async Task BuildTopScoreUsersAsync()
+    {
+        topScoreUsers.Clear();
+        topScoreUsers.AddRange(await DbContext.AuthorizedTwitterUsers
+            .AsNoTracking()
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Wins)
+            .ThenBy(x => x.Username)
+            .Take(10)
+            .Select(x => new TopScoreUser
+            {
+                AuthorId = x.AuthorId,
+                Username = x.Username,
+                Score = x.Score,
+                Wins = x.Wins,
+                Losses = x.Losses
+            })
+            .ToListAsync());
+    }
+
+    private async Task BuildInviteStatsAsync(DateTimeOffset? fromUtc, DateTimeOffset? toUtc, string authorId)
+    {
+        var query = DbContext.TwitterInvites.AsNoTracking().AsQueryable();
+        if (fromUtc.HasValue)
+            query = query.Where(x => x.CreatedAtUtc >= fromUtc.Value.UtcDateTime);
+        if (toUtc.HasValue)
+            query = query.Where(x => x.CreatedAtUtc < toUtc.Value.UtcDateTime);
+        if (!string.IsNullOrWhiteSpace(authorId))
+            query = query.Where(x => x.InviterAuthorId == authorId);
+
+        var invites = await query.ToListAsync();
+        totalInvites = invites.Count;
+        pendingInvites = invites.Count(x => x.Status == TwitterInvite.STATUS_PENDING);
+        acceptedInvites = invites.Count(x => x.Status == TwitterInvite.STATUS_ACCEPTED);
+        refusedInvites = invites.Count(x => x.Status == TwitterInvite.STATUS_REFUSED);
+
+        inviteStatusStats.Clear();
+        inviteStatusStats.AddRange(invites
+            .GroupBy(x => NormalizeInviteStatus(x.Status))
+            .Select(x => new InviteStatusStat(x.Key, GetInviteStatusLabel(x.Key), x.Count()))
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Label));
+        maxInviteStatusCount = Math.Max(1, inviteStatusStats.Count == 0 ? 1 : inviteStatusStats.Max(x => x.Count));
+
+        var grouped = invites
+            .Where(x => !string.IsNullOrWhiteSpace(x.InviterAuthorId))
+            .GroupBy(x => x.InviterAuthorId)
+            .Select(x => new TopInviter
+            {
+                AuthorId = x.Key,
+                Username = x.Select(item => item.InviterUsername).FirstOrDefault(username => !string.IsNullOrWhiteSpace(username)) ?? string.Empty,
+                Total = x.Count(),
+                Accepted = x.Count(item => item.Status == TwitterInvite.STATUS_ACCEPTED),
+                Pending = x.Count(item => item.Status == TwitterInvite.STATUS_PENDING),
+                Refused = x.Count(item => item.Status == TwitterInvite.STATUS_REFUSED)
+            })
+            .OrderByDescending(x => x.Total)
+            .ThenByDescending(x => x.Accepted)
+            .Take(10)
+            .ToList();
+
+        var missingAuthorIds = grouped
+            .Where(x => string.IsNullOrWhiteSpace(x.Username))
+            .Select(x => x.AuthorId)
+            .ToArray();
+
+        var names = missingAuthorIds.Length == 0
+            ? new Dictionary<string, string>()
+            : await DbContext.AuthorizedTwitterUsers
+                .AsNoTracking()
+                .Where(x => missingAuthorIds.Contains(x.AuthorId))
+                .ToDictionaryAsync(x => x.AuthorId, x => x.Username);
+
+        topInviters.Clear();
+        foreach (var inviter in grouped)
+        {
+            if (string.IsNullOrWhiteSpace(inviter.Username) && names.TryGetValue(inviter.AuthorId, out var username))
+                inviter.Username = username;
+
+            topInviters.Add(inviter);
+        }
+    }
+
+    private void BuildSummaryCards(IReadOnlyList<ProcessedMention> mentions)
+    {
+        summaryCards.Clear();
+
+        var activeUsers = mentions
+            .Where(x => !string.IsNullOrWhiteSpace(x.AuthorId))
+            .Select(x => x.AuthorId)
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+        var agentReplies = mentions.Count(x => NormalizeResult(x.Result) != "NOT_AUTHORIZED");
+        var unauthorized = mentions.Count(x => NormalizeResult(x.Result) == "NOT_AUTHORIZED");
+        var factChecks = mentions.Count(x => NormalizeResult(x.Result).StartsWith("THREAD_FACT_", StringComparison.OrdinalIgnoreCase));
+
+        summaryCards.Add(new("Mencoes", totalMentions.ToString("N0"), FormatPeriod()));
+        summaryCards.Add(new("Usuarios ativos", activeUsers.ToString("N0"), "Com AuthorId no periodo"));
+        summaryCards.Add(new("Respostas do agent", agentReplies.ToString("N0"), "Mencoes processadas pelo agent"));
+        summaryCards.Add(new("Nao autorizadas", unauthorized.ToString("N0"), $"{factChecks:N0} checagens factuais"));
+        summaryCards.Add(new("Convites", totalInvites.ToString("N0"), $"{acceptedInvites:N0} aceitos, {pendingInvites:N0} pendentes, {refusedInvites:N0} recusados"));
+        summaryCards.Add(new("Reqs LLM", llmRequests.ToString("N0"), $"Modelos: {llmModelUsage.Count:N0}"));
+        summaryCards.Add(new("Tokens LLM", llmTotalTokens.ToString("N0"), $"Prompt: {llmPromptTokens:N0} | Completion: {llmCompletionTokens:N0}"));
+    }
+
+    private async Task BuildLlmUsageAsync(DateTimeOffset? fromUtc, DateTimeOffset? toUtc, string authorId)
+    {
+        var query = DbContext.LlmRequestHistory
+            .AsNoTracking()
+            .Include(x => x.ProcessedMention)
+            .AsQueryable();
+
+        if (fromUtc.HasValue)
+            query = query.Where(x => x.ProcessedMention != null && x.ProcessedMention.ProcessedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(x => x.ProcessedMention != null && x.ProcessedMention.ProcessedAtUtc < toUtc.Value);
+        if (!string.IsNullOrWhiteSpace(authorId))
+            query = query.Where(x => x.ProcessedMention != null && x.ProcessedMention.AuthorId == authorId);
+
+        var records = await query.ToListAsync();
+
+        llmRequests = records.Count;
+        llmPromptTokens = records.Sum(x => (long?)x.PromptTokens ?? 0L);
+        llmCompletionTokens = records.Sum(x => (long?)x.CompletionTokens ?? 0L);
+        llmTotalTokens = records.Sum(x => (long?)x.TotalTokens ?? 0L);
+
+        llmModelUsage.Clear();
+        llmModelUsage.AddRange(records
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.Model) ? "unknown" : x.Model.Trim())
+            .Select(g => new LlmModelUsage
+            {
+                Model = g.Key,
+                Requests = g.Count(),
+                PromptTokens = g.Sum(x => (long?)x.PromptTokens ?? 0L),
+                CompletionTokens = g.Sum(x => (long?)x.CompletionTokens ?? 0L),
+                TotalTokens = g.Sum(x => (long?)x.TotalTokens ?? 0L)
+            })
+            .OrderByDescending(x => x.TotalTokens)
+            .ThenByDescending(x => x.Requests));
+    }
+
+    private string FormatPeriod()
+    {
+        var from = filters.FromDate?.ToString("dd/MM/yyyy") ?? "inicio";
+        var to = filters.ToDate?.ToString("dd/MM/yyyy") ?? "hoje";
+        return $"{from} ate {to}";
+    }
+
+    private static int GetPercent(int value, int max)
+    {
+        if (max <= 0)
+            return 0;
+
+        return Math.Clamp((int)Math.Round(value * 100d / max), 0, 100);
+    }
+
+    private static DateTimeOffset? ToStartUtc(DateTime? date)
+    {
+        if (!date.HasValue)
+            return null;
+
+        var localDate = date.Value.Date;
+        return new DateTimeOffset(localDate, TimeZoneInfo.Local.GetUtcOffset(localDate)).ToUniversalTime();
+    }
+
+    private static DateTimeOffset? ToExclusiveEndUtc(DateTime? date)
+    {
+        if (!date.HasValue)
+            return null;
+
+        var localDate = date.Value.Date.AddDays(1);
+        return new DateTimeOffset(localDate, TimeZoneInfo.Local.GetUtcOffset(localDate)).ToUniversalTime();
+    }
+
+    private static string FormatDate(DateTimeOffset value)
+    {
+        return value.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    }
+
+    private static string FormatText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string FormatUserDisplay(string authorId, string username)
+    {
+        if (!string.IsNullOrWhiteSpace(username))
+            return "@" + username;
+
+        return string.IsNullOrWhiteSpace(authorId) ? "Usuario nao identificado" : authorId;
+    }
+
+    private static string NormalizeResult(string result)
+    {
+        return string.IsNullOrWhiteSpace(result)
+            ? "NO_AGENT_RESPONSE"
+            : result.Trim().ToUpperInvariant();
+    }
+
+    private static string NormalizeInviteStatus(string status)
+    {
+        return string.IsNullOrWhiteSpace(status)
+            ? TwitterInvite.STATUS_PENDING
+            : status.Trim().ToUpperInvariant();
+    }
+
+    private static string GetInviteStatusLabel(string status)
+    {
+        return NormalizeInviteStatus(status) switch
+        {
+            TwitterInvite.STATUS_PENDING => "Pendentes",
+            TwitterInvite.STATUS_ACCEPTED => "Aceitos",
+            TwitterInvite.STATUS_REFUSED => "Recusados",
+            _ => NormalizeInviteStatus(status).Replace('_', ' ').ToLowerInvariant()
+        };
+    }
+
+    private static string GetResultLabel(string result)
+    {
+        return NormalizeResult(result) switch
+        {
+            "HELP" => "Ajuda",
+            "SCORE" => "Pontuacao",
+            "SCOREBOARD" => "Placar",
+            "INVITE" => "Convite",
+            "INVITE_NO_USER" => "Convite sem usuario",
+            "INVITE_ERROR" => "Erro de convite",
+            "ACCEPT" => "Aceite",
+            "REFUSE" => "Recusa",
+            "UNKNOWN" => "Comando desconhecido",
+            "NOT_AUTHORIZED" => "Nao autorizado",
+            "THREAD_ARGUE_0" => "Debate empatado",
+            "THREAD_ARGUE_1" => "Debate: autor A",
+            "THREAD_ARGUE_2" => "Debate: autor B",
+            "THREAD_FACT_TRUE" => "Checagem: verdadeiro",
+            "THREAD_FACT_FALSE" => "Checagem: falso",
+            "THREAD_FACT_UNCERTAIN" => "Checagem: inconclusivo",
+            "THREAD_WHOISRIGHT" => "Quem tem razao",
+            "NEWS_SEARCH" => "Pesquisa de noticia",
+            "NEWS_SEARCH_EMPTY" => "Pesquisa sem resultados",
+            "NEWS_SEARCH_ERROR" => "Erro em pesquisa",
+            _ => NormalizeResult(result).Replace('_', ' ').ToLowerInvariant()
+        };
+    }
+
+    private sealed class DashboardFilters
+    {
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+        public string AuthorId { get; set; } = string.Empty;
+    }
+
+    private sealed record SummaryCard(string Title, string Value, string Detail);
+    private sealed record ActionStat(string Result, string Label, int Count);
+    private sealed record InviteStatusStat(string Status, string Label, int Count);
+    private sealed record DailyStat(DateTime Day, int Count)
+    {
+        public string DayLabel => Day.ToString("dd/MM/yyyy");
+    }
+
+    private sealed class UserFilterOption
+    {
+        public string AuthorId { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+    }
+
+    private sealed class TopActiveUser
+    {
+        public string AuthorId { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public int Count { get; set; }
+        public DateTimeOffset LastActivityUtc { get; set; }
+    }
+
+    private sealed class TopScoreUser
+    {
+        public string AuthorId { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public int Score { get; set; }
+        public int Wins { get; set; }
+        public int Losses { get; set; }
+    }
+
+    private sealed class TopInviter
+    {
+        public string AuthorId { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public int Total { get; set; }
+        public int Accepted { get; set; }
+        public int Pending { get; set; }
+        public int Refused { get; set; }
+    }
+
+    private sealed class LlmModelUsage
+    {
+        public string Model { get; set; } = string.Empty;
+        public int Requests { get; set; }
+        public long PromptTokens { get; set; }
+        public long CompletionTokens { get; set; }
+        public long TotalTokens { get; set; }
+    }
+}

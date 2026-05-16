@@ -1,0 +1,585 @@
+@page "/mentions"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using System.Globalization
+@using System.Text.Json
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using VeraciBot.App.Data
+@using VeraciBot.App.Entities
+
+@inject ApplicationDbContext DbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IAuthorizationService AuthorizationService
+
+<PageTitle>Consulta de Mencoes</PageTitle>
+
+<h1>Consulta de Mencoes</h1>
+
+<EditForm Model="filters" OnSubmit="LoadMentionsAsync" FormName="mentions-filters">
+    <section class="border rounded p-3 mb-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="MentionsFrom" class="form-label">Inicio</label>
+                <InputDate @bind-Value="filters.FromDate" id="MentionsFrom" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label for="MentionsTo" class="form-label">Fim</label>
+                <InputDate @bind-Value="filters.ToDate" id="MentionsTo" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label for="MentionsAuthor" class="form-label">Autor</label>
+                @if (isAdmin)
+                {
+                    <InputSelect @bind-Value="filters.AuthorId" id="MentionsAuthor" class="form-select">
+                        <option value="">Todos os usuarios</option>
+                        @foreach (var option in authorOptions)
+                        {
+                            <option value="@option.AuthorId">@option.Label</option>
+                        }
+                    </InputSelect>
+                }
+                else
+                {
+                    <input id="MentionsAuthor" class="form-control" value="@GetCurrentAuthorLabel()" readonly disabled />
+                }
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">Filtrar</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetFiltersAsync">Limpar</button>
+            </div>
+        </div>
+    </section>
+</EditForm>
+
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <div class="alert alert-warning" role="alert">@loadError</div>
+}
+
+@if (isLoading)
+{
+    <p>Carregando...</p>
+}
+else if (!isAdmin && string.IsNullOrWhiteSpace(currentAuthorId))
+{
+    <div class="alert alert-info" role="alert">
+        Sua conta ainda nao esta vinculada a um AuthorId do Twitter. Atualize seu perfil em <a href="Account/Manage">Minha conta</a>.
+    </div>
+}
+else
+{
+    <section class="border rounded p-3 mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="text-muted small">Total no filtro atual: @mentions.Count mencoes</div>
+            @if (!isAdmin)
+            {
+                <span class="badge text-bg-secondary">Dados LLM ocultos para usuarios</span>
+            }
+        </div>
+    </section>
+
+    @if (mentions.Count == 0)
+    {
+        <p class="text-muted">Nenhuma mencao encontrada para o filtro informado.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>Quando</th>
+                        <th>Autor</th>
+                        <th>Resultado</th>
+                        <th>Mencao</th>
+                        <th>Link</th>
+                        @if (isAdmin)
+                        {
+                            <th class="text-end">LLM</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var mention in mentions)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@mention.ProcessedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@mention.AuthorId</td>
+                            <td>
+                                <span class="badge text-bg-secondary">@GetResultLabel(mention.Result)</span>
+                            </td>
+                            <td class="text-break">@mention.Text</td>
+                            <td class="text-nowrap">
+                                <a href="@GetMentionUrl(mention)" target="_blank" rel="noopener noreferrer">Abrir</a>
+                            </td>
+                            @if (isAdmin)
+                            {
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ShowLlmHistoryAsync(mention.TweetId)">Ver</button>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@if (isAdmin && isLlmModalOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" style="background-color: rgba(0,0,0,.45);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Historico LLM da mencao @selectedMentionId</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="ClearLlmHistory"></button>
+                </div>
+                <div class="modal-body">
+                    @if (llmHistoryLoading)
+                    {
+                        <p class="mb-0 text-muted">Carregando historico LLM...</p>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(llmHistoryError))
+                    {
+                        <div class="alert alert-warning py-2 small mb-0" role="alert">@llmHistoryError</div>
+                    }
+                    else if (selectedLlmHistory.Count == 0)
+                    {
+                        <p class="mb-0 text-muted">Nao ha registros LLM para esta mencao.</p>
+                    }
+                    else
+                    {
+                        @foreach (var item in selectedLlmHistory)
+                        {
+                            <section class="border rounded p-3 mb-3">
+                                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                    <div class="small text-muted">@item.RequestedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                    <div>
+                                        <span class="badge text-bg-secondary me-1">@item.Model</span>
+                                        <span class="badge @(item.Success ? "text-bg-success" : "text-bg-danger")">@item.LlmResult</span>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 small mb-3">
+                                    <div class="col-md-4"><strong>Prompt:</strong> @(item.PromptTokens?.ToString("N0", BrazilianCulture) ?? "-")</div>
+                                    <div class="col-md-4"><strong>Completion:</strong> @(item.CompletionTokens?.ToString("N0", BrazilianCulture) ?? "-")</div>
+                                    <div class="col-md-4"><strong>Total:</strong> @(item.TotalTokens?.ToString("N0", BrazilianCulture) ?? "-")</div>
+                                </div>
+
+                                @if (item.ProcessSteps.Count > 0)
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Passo a passo</div>
+                                        <ol class="small mb-0">
+                                            @foreach (var step in item.ProcessSteps)
+                                            {
+                                                <li>@step</li>
+                                            }
+                                        </ol>
+                                    </div>
+                                }
+
+                                @if (item.ConsultedNewsLinks.Count > 0)
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Links de noticias consultados</div>
+                                        <ul class="small mb-0">
+                                            @foreach (var link in item.ConsultedNewsLinks)
+                                            {
+                                                <li><a href="@link" target="_blank" rel="noopener noreferrer">@link</a></li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(item.MentionText))
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Input da mencao</div>
+                                        <pre class="bg-body-tertiary border rounded p-2 small mb-0">@item.MentionText</pre>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(item.ResponseText))
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Resposta gerada pela LLM</div>
+                                        <pre class="bg-body-tertiary border rounded p-2 small mb-0">@item.ResponseText</pre>
+                                    </div>
+                                }
+                            </section>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ClearLlmHistory">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo BrazilianCulture = CultureInfo.GetCultureInfo("pt-BR");
+
+    private readonly MentionsFilters filters = new();
+    private readonly List<ProcessedMention> mentions = [];
+    private readonly List<AuthorOption> authorOptions = [];
+    private readonly List<LlmHistoryView> selectedLlmHistory = [];
+
+    private bool isLoading = true;
+    private bool isAdmin;
+    private string currentAuthorId = string.Empty;
+    private string currentAuthorUsername = string.Empty;
+    private string loadError = string.Empty;
+
+    private bool isLlmModalOpen;
+    private bool llmHistoryLoading;
+    private string llmHistoryError = string.Empty;
+    private string selectedMentionId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ResetFilterValues();
+        await ResolveAccessContextAsync();
+
+        if (isAdmin)
+            await LoadAuthorOptionsAsync();
+
+        await LoadMentionsAsync();
+    }
+
+    private async Task ResolveAccessContextAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+
+        isAdmin = (await AuthorizationService.AuthorizeAsync(principal, RolePolicies.For(EApplicationRoles.Admin))).Succeeded;
+
+        var currentUser = await UserManager.GetUserAsync(principal);
+        if (currentUser is null)
+            return;
+
+        currentAuthorId = currentUser.AuthorId?.Trim() ?? string.Empty;
+        currentAuthorUsername = currentUser.TwitterUsername?.Trim().TrimStart('@') ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentAuthorId) && !string.IsNullOrWhiteSpace(currentAuthorUsername))
+        {
+            var authByUsername = await DbContext.AuthorizedTwitterUsers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Username == currentAuthorUsername);
+
+            if (authByUsername is not null)
+                currentAuthorId = authByUsername.AuthorId;
+        }
+
+        if (!isAdmin)
+            filters.AuthorId = currentAuthorId;
+    }
+
+    private async Task LoadAuthorOptionsAsync()
+    {
+        authorOptions.Clear();
+
+        var authUsers = await DbContext.AuthorizedTwitterUsers
+            .AsNoTracking()
+            .Select(x => new AuthorOption
+            {
+                AuthorId = x.AuthorId,
+                Username = x.Username
+            })
+            .ToListAsync();
+
+        var mentionsUsers = await DbContext.ProcessedMentions
+            .AsNoTracking()
+            .Select(x => x.AuthorId)
+            .Distinct()
+            .ToListAsync();
+
+        var merged = authUsers
+            .Concat(mentionsUsers.Select(x => new AuthorOption { AuthorId = x, Username = string.Empty }))
+            .GroupBy(x => x.AuthorId)
+            .Select(g => g.First())
+            .Where(x => !string.IsNullOrWhiteSpace(x.AuthorId))
+            .OrderBy(x => x.Username)
+            .ThenBy(x => x.AuthorId)
+            .ToList();
+
+        foreach (var item in merged)
+        {
+            item.Label = string.IsNullOrWhiteSpace(item.Username)
+                ? item.AuthorId
+                : "@" + item.Username;
+            authorOptions.Add(item);
+        }
+    }
+
+    private async Task LoadMentionsAsync()
+    {
+        isLoading = true;
+        loadError = string.Empty;
+
+        try
+        {
+            mentions.Clear();
+
+            if (!isAdmin && string.IsNullOrWhiteSpace(currentAuthorId))
+                return;
+
+            var fromUtc = ToStartUtc(filters.FromDate);
+            var toUtc = ToExclusiveEndUtc(filters.ToDate);
+            var authorIdFilter = isAdmin
+                ? (filters.AuthorId?.Trim() ?? string.Empty)
+                : currentAuthorId;
+
+            var query = DbContext.ProcessedMentions.AsNoTracking();
+
+            if (fromUtc.HasValue)
+                query = query.Where(x => x.ProcessedAtUtc >= fromUtc.Value);
+            if (toUtc.HasValue)
+                query = query.Where(x => x.ProcessedAtUtc < toUtc.Value);
+            if (!string.IsNullOrWhiteSpace(authorIdFilter))
+                query = query.Where(x => x.AuthorId == authorIdFilter);
+
+            mentions.AddRange(await query
+                .OrderByDescending(x => x.ProcessedAtUtc)
+                .Take(500)
+                .ToListAsync());
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Nao foi possivel carregar mencoes: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        ResetFilterValues();
+        if (!isAdmin)
+            filters.AuthorId = currentAuthorId;
+
+        await LoadMentionsAsync();
+    }
+
+    private void ResetFilterValues()
+    {
+        var today = DateTime.Today;
+        filters.FromDate = today.AddDays(-30);
+        filters.ToDate = today;
+        filters.AuthorId = string.Empty;
+    }
+
+    private async Task ShowLlmHistoryAsync(string mentionId)
+    {
+        if (!isAdmin)
+            return;
+
+        isLlmModalOpen = true;
+        selectedMentionId = mentionId;
+        llmHistoryLoading = true;
+        llmHistoryError = string.Empty;
+        selectedLlmHistory.Clear();
+
+        try
+        {
+            var data = await DbContext.LlmRequestHistory
+                .AsNoTracking()
+                .Where(x => x.ProcessedMentionTweetId == mentionId)
+                .OrderByDescending(x => x.RequestedAtUtc)
+                .Take(50)
+                .ToListAsync();
+
+            selectedLlmHistory.AddRange(data.Select(ToLlmView));
+        }
+        catch (Exception ex)
+        {
+            llmHistoryError = $"Nao foi possivel carregar historico LLM: {ex.Message}";
+        }
+        finally
+        {
+            llmHistoryLoading = false;
+        }
+    }
+
+    private void ClearLlmHistory()
+    {
+        isLlmModalOpen = false;
+        selectedMentionId = string.Empty;
+        llmHistoryError = string.Empty;
+        selectedLlmHistory.Clear();
+    }
+
+    private string GetCurrentAuthorLabel()
+    {
+        if (!string.IsNullOrWhiteSpace(currentAuthorUsername))
+            return "@" + currentAuthorUsername;
+
+        if (!string.IsNullOrWhiteSpace(currentAuthorId))
+            return currentAuthorId;
+
+        return "Nao vinculado";
+    }
+
+    private static DateTimeOffset? ToStartUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        var local = DateTime.SpecifyKind(value.Value.Date, DateTimeKind.Local);
+        return new DateTimeOffset(local).ToUniversalTime();
+    }
+
+    private static DateTimeOffset? ToExclusiveEndUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        var localExclusive = DateTime.SpecifyKind(value.Value.Date.AddDays(1), DateTimeKind.Local);
+        return new DateTimeOffset(localExclusive).ToUniversalTime();
+    }
+
+    private static string GetResultLabel(string result)
+    {
+        var normalized = string.IsNullOrWhiteSpace(result)
+            ? "NO_AGENT_RESPONSE"
+            : result.Trim().ToUpperInvariant();
+
+        return normalized switch
+        {
+            "HELP" => "Ajuda",
+            "SCORE" => "Pontuacao",
+            "SCOREBOARD" => "Placar",
+            "INVITE" => "Convite",
+            "INVITE_NO_USER" => "Convite sem usuario",
+            "INVITE_ERROR" => "Erro de convite",
+            "ACCEPT" => "Aceite",
+            "REFUSE" => "Recusa",
+            "UNKNOWN" => "Comando desconhecido",
+            "NOT_AUTHORIZED" => "Nao autorizado",
+            "THREAD_ARGUE_0" => "Debate empatado",
+            "THREAD_ARGUE_1" => "Debate: autor A",
+            "THREAD_ARGUE_2" => "Debate: autor B",
+            "THREAD_FACT_TRUE" => "Checagem: verdadeiro",
+            "THREAD_FACT_FALSE" => "Checagem: falso",
+            "THREAD_FACT_UNCERTAIN" => "Checagem: inconclusivo",
+            "THREAD_WHOISRIGHT" => "Quem tem razao",
+            "NEWS_SEARCH" => "Pesquisa de noticia",
+            "NEWS_SEARCH_EMPTY" => "Pesquisa sem resultados",
+            "NEWS_SEARCH_ERROR" => "Erro em pesquisa",
+            _ => normalized.Replace('_', ' ').ToLowerInvariant()
+        };
+    }
+
+    private static string GetMentionUrl(ProcessedMention mention)
+    {
+        if (!string.IsNullOrWhiteSpace(mention.MentionUrl))
+            return mention.MentionUrl;
+
+        return string.IsNullOrWhiteSpace(mention.TweetId)
+            ? "#"
+            : $"https://x.com/i/web/status/{mention.TweetId.Trim()}";
+    }
+
+    private static LlmHistoryView ToLlmView(LlmRequestHistory data)
+    {
+        var mentionText = string.Empty;
+        var responseText = string.Empty;
+        var links = ParseStringArray(data.ConsultedNewsLinksJson);
+        var steps = ParseStringArray(data.ProcessStepsJson);
+
+        if (!string.IsNullOrWhiteSpace(data.MetadataJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(data.MetadataJson);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("mentionText", out var mentionElement))
+                    mentionText = mentionElement.GetString() ?? string.Empty;
+
+                if (root.TryGetProperty("responseText", out var responseElement))
+                    responseText = responseElement.GetString() ?? string.Empty;
+
+                if (links.Count == 0 && root.TryGetProperty("consultedNewsLinks", out var linksElement))
+                    links = ParseStringArray(linksElement.GetRawText());
+
+                if (steps.Count == 0 && root.TryGetProperty("processSteps", out var stepsElement))
+                    steps = ParseStringArray(stepsElement.GetRawText());
+            }
+            catch
+            {
+                // Ignore malformed metadata and keep fallback values.
+            }
+        }
+
+        return new LlmHistoryView
+        {
+            RequestedAtUtc = data.RequestedAtUtc,
+            Model = data.Model,
+            PromptTokens = data.PromptTokens,
+            CompletionTokens = data.CompletionTokens,
+            TotalTokens = data.TotalTokens,
+            LlmResult = data.LlmResult,
+            Success = data.Success,
+            MentionText = mentionText,
+            ResponseText = responseText,
+            ConsultedNewsLinks = links,
+            ProcessSteps = steps
+        };
+    }
+
+    private static List<string> ParseStringArray(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<List<string>>(json);
+            return parsed?.Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private sealed class MentionsFilters
+    {
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+        public string AuthorId { get; set; } = string.Empty;
+    }
+
+    private sealed class AuthorOption
+    {
+        public string AuthorId { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+    }
+
+    private sealed class LlmHistoryView
+    {
+        public DateTimeOffset RequestedAtUtc { get; set; }
+        public string Model { get; set; } = string.Empty;
+        public int? PromptTokens { get; set; }
+        public int? CompletionTokens { get; set; }
+        public int? TotalTokens { get; set; }
+        public string LlmResult { get; set; } = string.Empty;
+        public bool Success { get; set; }
+        public string MentionText { get; set; } = string.Empty;
+        public string ResponseText { get; set; } = string.Empty;
+        public List<string> ConsultedNewsLinks { get; set; } = [];
+        public List<string> ProcessSteps { get; set; } = [];
+    }
+}

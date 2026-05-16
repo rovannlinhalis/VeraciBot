@@ -1,0 +1,95 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@using VeraciBot.App.Entities
+@using VeraciBot.App.Services
+
+@inject ApplicationSettingsService SettingsService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>VeraciBot</PageTitle>
+
+@if (isLoading)
+{
+    <p>Carregando...</p>
+}
+else
+{
+    <section class="landing-hero border rounded-4 p-4 p-lg-5 mb-4">
+        <div class="row g-4 align-items-center">
+            <div class="col-lg-7">
+                <div class="text-uppercase small fw-semibold text-secondary mb-2">@subtitle</div>
+                <h1 class="display-5 fw-bold mb-3">@title</h1>
+                <p class="lead mb-4">@description</p>
+                <div class="d-flex flex-wrap gap-2">
+                    @if (isAuthenticated)
+                    {
+                        <a class="btn btn-primary btn-lg" href="me">Ir para Meu Painel</a>
+                    }
+                    else
+                    {
+                        <a class="btn btn-primary btn-lg" href="@primaryCtaUrl">@primaryCtaText</a>
+                        <a class="btn btn-outline-secondary btn-lg" href="@secondaryCtaUrl">@secondaryCtaText</a>
+                    }
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <img src="@heroImage" class="img-fluid rounded-4 shadow-sm" alt="Imagem principal do VeraciBot" />
+            </div>
+        </div>
+    </section>
+
+    <section class="border rounded-4 p-4 p-lg-5">
+        <div class="row g-4 align-items-center">
+            <div class="col-lg-6 order-lg-2">
+                <img src="@featureImage" class="img-fluid rounded-4 shadow-sm" alt="Verificação de notícias e debates" />
+            </div>
+            <div class="col-lg-6 order-lg-1">
+                <h2 class="h3 mb-3">Como o bot funciona</h2>
+                <ul class="mb-0">
+                    <li>Analisa menções e identifica comandos.</li>
+                    <li>Pesquisa fontes para checagem de notícias.</li>
+                    <li>Registra histórico de execução e resultados.</li>
+                    <li>Organiza pontuação e convites da comunidade.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isAuthenticated;
+    private string title = "VeraciBot";
+    private string subtitle = "Verificação de notícias e debates";
+    private string description = "Assistente para avaliar alegações, consultar fontes e acompanhar interações no X/Twitter.";
+    private string heroImage = "img/logo.jpg";
+    private string featureImage = "img/resp0.jpg";
+    private string primaryCtaText = "Entrar";
+    private string primaryCtaUrl = "/Account/Login";
+    private string secondaryCtaText = "Criar conta";
+    private string secondaryCtaUrl = "/Account/Register";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+
+        title = await GetSettingOrDefault(ApplicationParameter.LANDING_TITLE, title);
+        subtitle = await GetSettingOrDefault(ApplicationParameter.LANDING_SUBTITLE, subtitle);
+        description = await GetSettingOrDefault(ApplicationParameter.LANDING_DESCRIPTION, description);
+        heroImage = await GetSettingOrDefault(ApplicationParameter.LANDING_HERO_IMAGE, heroImage);
+        featureImage = await GetSettingOrDefault(ApplicationParameter.LANDING_FEATURE_IMAGE, featureImage);
+        primaryCtaText = await GetSettingOrDefault(ApplicationParameter.LANDING_PRIMARY_CTA_TEXT, primaryCtaText);
+        primaryCtaUrl = await GetSettingOrDefault(ApplicationParameter.LANDING_PRIMARY_CTA_URL, primaryCtaUrl);
+        secondaryCtaText = await GetSettingOrDefault(ApplicationParameter.LANDING_SECONDARY_CTA_TEXT, secondaryCtaText);
+        secondaryCtaUrl = await GetSettingOrDefault(ApplicationParameter.LANDING_SECONDARY_CTA_URL, secondaryCtaUrl);
+
+        isLoading = false;
+    }
+
+    private async Task<string> GetSettingOrDefault(ApplicationParameter parameter, string defaultValue)
+    {
+        var value = await SettingsService.GetValueAsync(parameter);
+        return string.IsNullOrWhiteSpace(value) ? defaultValue : value.Trim();
+    }
+}

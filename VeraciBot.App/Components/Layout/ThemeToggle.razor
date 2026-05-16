@@ -1,0 +1,54 @@
+@implements IDisposable
+@rendermode InteractiveServer
+
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@inject ThemeState AppTheme
+
+<button type="button" class="nav-link" @onclick="ToggleThemeAsync">
+    <span class="bi @ThemeIconClass" aria-hidden="true"></span> @ThemeToggleText
+</button>
+
+@code {
+    private string ThemeIconClass => AppTheme.IsDarkMode ? "bi-sun-fill-nav-menu" : "bi-moon-stars-fill-nav-menu";
+    private string ThemeToggleText => AppTheme.IsDarkMode ? "Modo claro" : "Modo escuro";
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await SyncThemeAsync();
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        var theme = await JS.InvokeAsync<string>("veraciBotTheme.toggle");
+        AppTheme.SetTheme(theme);
+        StateHasChanged();
+    }
+
+    private async Task SyncThemeAsync()
+    {
+        var theme = await JS.InvokeAsync<string>("veraciBotTheme.init");
+        AppTheme.SetTheme(theme);
+        StateHasChanged();
+    }
+
+    private void OnLocationChanged(object sender, LocationChangedEventArgs e)
+    {
+        _ = InvokeAsync(SyncThemeAsync);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}

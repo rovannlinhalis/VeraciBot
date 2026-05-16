@@ -1,0 +1,7 @@
+.landing-hero {
+    background: linear-gradient(135deg, rgba(11, 102, 195, 0.08), rgba(29, 78, 216, 0.02));
+}
+
+[data-bs-theme="dark"] .landing-hero {
+    background: linear-gradient(135deg, rgba(117, 183, 255, 0.16), rgba(117, 183, 255, 0.04));
+}

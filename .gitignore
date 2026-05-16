@@ -363,3 +363,11 @@ MigrationBackup/
 FodyWeavers.xsd
 /VeraciApp/appkeys.json
 /VeraciBot/appkeys.json
+Novo(a) Documento de Texto.txt
+/.codex-build
+v2/VeraciBot/VeraciBot.App/.codex-build
+v2/VeraciBot/.artifacts/build-verify/
+v2/VeraciBot/.artifacts/
+.artifacts/
+.codex-build/
+VeraciBot.App/.codex-build/

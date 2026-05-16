@@ -1,0 +1,1216 @@
+@page "/admin/users"
+@rendermode InteractiveServer
+@attribute [RoleRequirement(EApplicationRoles.Admin)]
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using VeraciBot.App.Data
+@using VeraciBot.App.Entities
+@using VeraciBot.App.Services
+@using VeraciBot.App.Shared
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<ApplicationRole> RoleManager
+@inject ApplicationDbContext DbContext
+@inject TwitterUserAuthorizationService TwitterAuthorizationService
+
+<PageTitle>Usuários</PageTitle>
+
+<h1>Usuários</h1>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="alert @messageCss" role="alert">@message</div>
+}
+
+@if (isLoading)
+{
+    <p>Carregando...</p>
+}
+else
+{
+    <div class="row g-4">
+        @if (showCreateModal)
+        {
+            <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="CreateUserTitle">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <section class="modal-content p-3">
+                        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                            <h2 class="h5 mb-0" id="CreateUserTitle">Novo usuario</h2>
+                            <button type="button" class="btn-close" aria-label="Fechar" @onclick="CloseCreateModal"></button>
+                        </div>
+
+                <EditForm Model="createInput" OnValidSubmit="CreateUserAsync" FormName="admin-create-user">
+                    <DataAnnotationsValidator />
+                    @if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        <div class="alert @messageCss" role="alert">@message</div>
+                    }
+                    <ValidationSummary class="text-danger" role="alert" />
+
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="createInput.Email" id="CreateEmail" class="form-control" autocomplete="off" placeholder="usuario@exemplo.com" />
+                        <label for="CreateEmail">Email</label>
+                        <ValidationMessage For="() => createInput.Email" class="text-danger" />
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="createInput.TwitterUsername" id="CreateTwitterUsername" class="form-control" autocomplete="off" placeholder="usuario" />
+                        <label for="CreateTwitterUsername">Twitter / X usuario</label>
+                        <ValidationMessage For="() => createInput.TwitterUsername" class="text-danger" />
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="createInput.AuthorId" id="CreateAuthorId" class="form-control" autocomplete="off" placeholder="AuthorId" />
+                        <label for="CreateAuthorId">Twitter AuthorId</label>
+                        <ValidationMessage For="() => createInput.AuthorId" class="text-danger" />
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputText type="password" @bind-Value="createInput.Password" id="CreatePassword" class="form-control" autocomplete="new-password" placeholder="Senha" />
+                        <label for="CreatePassword">Senha</label>
+                        <ValidationMessage For="() => createInput.Password" class="text-danger" />
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputSelect @bind-Value="createInput.Role" id="CreateRole" class="form-select">
+                            @foreach (var role in assignableRoles)
+                            {
+                                <option value="@role">@GetRoleLabel(role)</option>
+                            }
+                        </InputSelect>
+                        <label for="CreateRole">Role</label>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <InputSelect @bind-Value="createInput.TwitterAuthorizationStatus" id="CreateTwitterAuthorizationStatus" class="form-select">
+                            <option value="">Sem registro no bot</option>
+                            <option value="@AuthorizedTwitterUser.STATUS_AUTHORIZED">Permitido no bot</option>
+                            <option value="@AuthorizedTwitterUser.STATUS_NOT_AUTHORIZED">Bloqueado no bot</option>
+                        </InputSelect>
+                        <label for="CreateTwitterAuthorizationStatus">Acesso ao bot no Twitter</label>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <InputCheckbox @bind-Value="createInput.Enabled" id="CreateEnabled" class="form-check-input" />
+                        <label class="form-check-label" for="CreateEnabled">Usuário ativo</label>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseCreateModal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Criar usuario</button>
+                    </div>
+                </EditForm>
+            </section>
+                </div>
+            </div>
+            <div class="modal-backdrop fade show"></div>
+        }
+
+        <div class="col-12">
+            <section class="border rounded p-3 mb-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h2 class="h5 mb-0">Usuarios cadastrados</h2>
+                    <button type="button" class="btn btn-primary" @onclick="OpenCreateModal">Novo usuario</button>
+                </div>
+
+                <EditForm Model="searchInput" OnSubmit="ApplySearchAsync" FormName="admin-search-users">
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-6">
+                            <label for="SearchTerm" class="form-label">Busca</label>
+                            <InputText @bind-Value="searchInput.Term" id="SearchTerm" class="form-control" autocomplete="off" placeholder="Email, nome de usuário ou AuthorId" />
+                        </div>
+                        <div class="col-md-3">
+                            <label for="PageSize" class="form-label">Por página</label>
+                            <InputSelect @bind-Value="pageSize" id="PageSize" class="form-select">
+                                @foreach (var size in pageSizeOptions)
+                                {
+                                    <option value="@size">@size</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-outline-primary flex-fill">Buscar</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ClearSearchAsync">Limpar</button>
+                        </div>
+                    </div>
+                </EditForm>
+
+                @if (users.Count == 0)
+                {
+                    <p class="mb-0">Nenhum usuário cadastrado.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Usuário</th>
+                                    <th scope="col">Twitter</th>
+                                    <th scope="col">AuthorId</th>
+                                    <th scope="col">Role</th>
+                                    <th scope="col">Bot</th>
+                                    <th scope="col">Convites</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col" class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in users)
+                                {
+                                    <tr class="@(editInput?.Id == user.Id ? "table-active" : null)">
+                                        <td>
+                                            <div>@user.Email</div>
+                                            <small class="text-muted">ID @user.Id</small>
+                                            @if (user.IsCurrentUser)
+                                            {
+                                                <span class="badge text-bg-secondary ms-2">Você</span>
+                                            }
+                                        </td>
+                                        <td>@FormatTwitterUsername(user.TwitterUsername)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(user.AuthorId) ? "-" : user.AuthorId)</td>
+                                        <td>@GetRoleLabel(user.Role)</td>
+                                        <td>
+                                            <span class="badge @GetTwitterAuthorizationBadgeClass(user.TwitterAuthorizationStatus)">
+                                                @GetTwitterAuthorizationLabel(user.TwitterAuthorizationStatus)
+                                            </span>
+                                            @if (user.TwitterAuthorizationStatus == AuthorizedTwitterUser.STATUS_NOT_AUTHORIZED && user.DeauthorizationDate.HasValue)
+                                            {
+                                                <div class="text-muted small">@FormatDate(user.DeauthorizationDate)</div>
+                                            }
+                                            else if (user.AuthorizationDate.HasValue)
+                                            {
+                                                <div class="text-muted small">@FormatDate(user.AuthorizationDate)</div>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (IsAdminRole(user.Role))
+                                            {
+                                                <span class="badge text-bg-info">Ilimitado</span>
+                                            }
+                                            else
+                                            {
+                                                <div class="fw-semibold">@user.InviteCredits</div>
+                                                <small class="text-muted">@user.InvitesSent enviados, @user.InvitesAccepted aceitos</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge @(user.Enabled ? "text-bg-success" : "text-bg-secondary")">
+                                                @(user.Enabled ? "Ativo" : "Bloqueado")
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary me-2"
+                                                    disabled="@(!CanManageUser(user))"
+                                                    @onclick="() => StartEditAsync(user)">
+                                                Editar
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    disabled="@(!CanDeleteUser(user))"
+                                                    @onclick="() => DeleteUserAsync(user.Id)">
+                                                Excluir
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div class="text-muted small">
+                            Mostrando @FirstVisibleUser-@LastVisibleUser de @totalUsers usuários
+                        </div>
+
+                        <nav aria-label="Paginação de usuários">
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item @(pageNumber == 1 ? "disabled" : null)">
+                                    <button type="button" class="page-link" disabled="@(pageNumber == 1)" @onclick="() => GoToPageAsync(pageNumber - 1)">Anterior</button>
+                                </li>
+
+                                @foreach (var page in GetVisiblePages())
+                                {
+                                    <li class="page-item @(page == pageNumber ? "active" : null)">
+                                        <button type="button" class="page-link" @onclick="() => GoToPageAsync(page)">@(page)</button>
+                                    </li>
+                                }
+
+                                <li class="page-item @(pageNumber == TotalPages ? "disabled" : null)">
+                                    <button type="button" class="page-link" disabled="@(pageNumber == TotalPages)" @onclick="() => GoToPageAsync(pageNumber + 1)">Próxima</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                }
+            </section>
+
+            @if (editInput is not null)
+            {
+                <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="EditUserTitle">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <section class="modal-content p-3">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                                <h2 class="h5 mb-0" id="EditUserTitle">Editar usuario</h2>
+                                <button type="button" class="btn-close" aria-label="Fechar" @onclick="CancelEdit"></button>
+                            </div>
+
+                    <EditForm Model="editInput" OnValidSubmit="UpdateUserAsync" FormName="admin-edit-user">
+                        <DataAnnotationsValidator />
+                        @if (!string.IsNullOrWhiteSpace(message))
+                        {
+                            <div class="alert @messageCss" role="alert">@message</div>
+                        }
+                        <ValidationSummary class="text-danger" role="alert" />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText @bind-Value="editInput.Email" id="EditEmail" class="form-control" autocomplete="off" placeholder="usuario@exemplo.com" />
+                                    <label for="EditEmail">Email</label>
+                                    <ValidationMessage For="() => editInput.Email" class="text-danger" />
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText @bind-Value="editInput.TwitterUsername" id="EditTwitterUsername" class="form-control" autocomplete="off" placeholder="usuario" />
+                                    <label for="EditTwitterUsername">Twitter / X usuario</label>
+                                    <ValidationMessage For="() => editInput.TwitterUsername" class="text-danger" />
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText @bind-Value="editInput.AuthorId" id="EditAuthorId" class="form-control" autocomplete="off" placeholder="AuthorId" />
+                                    <label for="EditAuthorId">Twitter AuthorId</label>
+                                    <ValidationMessage For="() => editInput.AuthorId" class="text-danger" />
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputSelect @bind-Value="editInput.TwitterAuthorizationStatus" id="EditTwitterAuthorizationStatus" class="form-select">
+                                        <option value="">Sem registro no bot</option>
+                                        <option value="@AuthorizedTwitterUser.STATUS_AUTHORIZED">Permitido no bot</option>
+                                        <option value="@AuthorizedTwitterUser.STATUS_NOT_AUTHORIZED">Bloqueado no bot</option>
+                                    </InputSelect>
+                                    <label for="EditTwitterAuthorizationStatus">Acesso ao bot no Twitter</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputSelect @bind-Value="editInput.Role" id="EditRole" class="form-select" disabled="@editInput.IsCurrentUser">
+                                        @foreach (var role in assignableRoles)
+                                        {
+                                            <option value="@role">@GetRoleLabel(role)</option>
+                                        }
+                                    </InputSelect>
+                                    <label for="EditRole">Role</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText type="password" @bind-Value="editInput.NewPassword" id="EditPassword" class="form-control" autocomplete="new-password" placeholder="Nova senha" />
+                                    <label for="EditPassword">Nova senha</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 d-flex align-items-center">
+                                <div class="form-check form-switch">
+                                    <InputCheckbox @bind-Value="editInput.Enabled" id="EditEnabled" class="form-check-input" disabled="@editInput.IsCurrentUser" />
+                                    <label class="form-check-label" for="EditEnabled">Usuário ativo</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Convites</label>
+                                <div class="border rounded p-2 h-100">
+                                    @if (IsAdminRole(editInput.Role))
+                                    {
+                                        <div class="fw-semibold">Ilimitado</div>
+                                        <small class="text-muted">Administradores podem convidar sem consumir saldo.</small>
+                                    }
+                                    else
+                                    {
+                                        <div class="fw-semibold">Saldo atual: @editInput.InviteCredits</div>
+                                        <small class="text-muted">@editInput.InvitesSent enviados, @editInput.InvitesAccepted aceitos</small>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputNumber @bind-Value="editInput.InvitesToAdd" id="EditInvitesToAdd" class="form-control" disabled="@IsAdminRole(editInput.Role)" />
+                                    <label for="EditInvitesToAdd">Adicionar convites</label>
+                                </div>
+                                <small class="text-muted">Informe um numero positivo para somar ao saldo do usuario comum.</small>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Salvar</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CancelEdit">Cancelar</button>
+                        </div>
+                    </EditForm>
+
+                    <div class="mt-4">
+                        <h3 class="h6">Historico de autorizacao no Twitter</h3>
+                        @if (editAuthHistory.Count == 0)
+                        {
+                            <p class="mb-0 text-muted small">Sem eventos registrados.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Data</th>
+                                            <th scope="col">Status anterior</th>
+                                            <th scope="col">Novo status</th>
+                                            <th scope="col">Origem</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var history in editAuthHistory)
+                                        {
+                                            <tr>
+                                                <td>@FormatDate(history.ChangedAtUtc)</td>
+                                                <td>@GetTwitterAuthorizationLabel(history.PreviousStatus)</td>
+                                                <td>@GetTwitterAuthorizationLabel(history.Status)</td>
+                                                <td>@FormatHistorySource(history)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                        </section>
+                    </div>
+                </div>
+                <div class="modal-backdrop fade show"></div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private readonly CreateUserInput createInput = new();
+    private readonly SearchInput searchInput = new();
+    private readonly List<UserRow> users = [];
+    private readonly List<AuthorizedTwitterUserHistory> editAuthHistory = [];
+    private readonly int[] pageSizeOptions = [25, 50, 100];
+    private EditUserInput editInput;
+    private EApplicationRoles[] assignableRoles = [EApplicationRoles.User];
+    private EApplicationRoles currentUserRole = EApplicationRoles.User;
+    private long? currentUserId;
+    private bool isLoading = true;
+    private bool showCreateModal;
+    private int pageNumber = 1;
+    private int pageSize = 25;
+    private int totalUsers;
+    private string message;
+    private string messageCss = "alert-info";
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(totalUsers / (double)pageSize));
+    private int FirstVisibleUser => totalUsers == 0 ? 0 : ((pageNumber - 1) * pageSize) + 1;
+    private int LastVisibleUser => Math.Min(pageNumber * pageSize, totalUsers);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentUserAsync();
+        ResetCreateInput();
+
+        pageNumber = 1;
+        await LoadUsersAsync();
+        isLoading = false;
+    }
+
+    private async Task LoadCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var currentUser = await UserManager.GetUserAsync(authState.User);
+
+        if (currentUser is null)
+        {
+            return;
+        }
+
+        currentUserId = currentUser.Id;
+        currentUserRole = await GetHighestRoleAsync(currentUser);
+        assignableRoles = Enum.GetValues<EApplicationRoles>()
+            .Where(role => (int)role <= (int)currentUserRole)
+            .OrderBy(role => (int)role)
+            .ToArray();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        users.Clear();
+        if (!pageSizeOptions.Contains(pageSize))
+        {
+            pageSize = pageSizeOptions.First();
+        }
+
+        var query = DbContext.Users.AsNoTracking();
+        var searchTerm = searchInput.Term?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var likeTerm = $"%{searchTerm}%";
+            var likeTwitterTerm = $"%{TwitterUserAuthorizationService.NormalizeUsername(searchTerm)}%";
+            query = query.Where(user =>
+                EF.Functions.Like(user.Email, likeTerm) ||
+                EF.Functions.Like(user.UserName, likeTerm) ||
+                EF.Functions.Like(user.TwitterUsername, likeTwitterTerm) ||
+                EF.Functions.Like(user.AuthorId, likeTerm));
+        }
+
+        totalUsers = await query.CountAsync();
+        pageNumber = Math.Clamp(pageNumber, 1, TotalPages);
+
+        var pageUsers = await query
+            .AsNoTracking()
+            .OrderBy(user => user.Email)
+            .ThenBy(user => user.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(user => new UserRow
+            {
+                Id = user.Id,
+                Email = user.Email ?? user.UserName ?? "",
+                TwitterUsername = user.TwitterUsername ?? "",
+                AuthorId = user.AuthorId ?? "",
+                Enabled = user.Enabled,
+                IsCurrentUser = currentUserId == user.Id
+            })
+            .ToListAsync();
+
+        var userIds = pageUsers.Select(user => user.Id).ToArray();
+        var roleLookup = await GetHighestRolesByUserIdAsync(userIds);
+        var authorIds = pageUsers
+            .Select(user => user.AuthorId)
+            .Where(authorId => !string.IsNullOrWhiteSpace(authorId))
+            .Distinct()
+            .ToArray();
+        var twitterAuthLookup = authorIds.Length == 0
+            ? new Dictionary<string, AuthorizedTwitterUser>()
+            : await DbContext.AuthorizedTwitterUsers
+                .AsNoTracking()
+                .Where(auth => authorIds.Contains(auth.AuthorId))
+                .ToDictionaryAsync(auth => auth.AuthorId);
+
+        foreach (var user in pageUsers)
+        {
+            user.Role = roleLookup.TryGetValue(user.Id, out var role)
+                ? role
+                : EApplicationRoles.User;
+
+            if (!string.IsNullOrWhiteSpace(user.AuthorId) &&
+                twitterAuthLookup.TryGetValue(user.AuthorId, out var twitterAuth))
+            {
+                user.TwitterAuthorizationStatus = twitterAuth.Status ?? "";
+                user.AuthorizationDate = twitterAuth.AuthorizationDate;
+                user.DeauthorizationDate = twitterAuth.DeauthorizationDate;
+                user.InviteCredits = twitterAuth.InviteCredits;
+                user.InvitesSent = twitterAuth.InvitesSent;
+                user.InvitesAccepted = twitterAuth.InvitesAccepted;
+                if (string.IsNullOrWhiteSpace(user.TwitterUsername))
+                    user.TwitterUsername = twitterAuth.Username ?? "";
+            }
+
+            users.Add(user);
+        }
+    }
+
+    private async Task ApplySearchAsync()
+    {
+        pageNumber = 1;
+        await LoadUsersAsync();
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        searchInput.Term = "";
+        pageNumber = 1;
+        await LoadUsersAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        pageNumber = Math.Clamp(page, 1, TotalPages);
+        await LoadUsersAsync();
+    }
+
+    private IEnumerable<int> GetVisiblePages()
+    {
+        var start = Math.Max(1, pageNumber - 2);
+        var end = Math.Min(TotalPages, start + 4);
+        start = Math.Max(1, end - 4);
+
+        for (var page = start; page <= end; page++)
+        {
+            yield return page;
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        ClearMessage();
+        editInput = null;
+        editAuthHistory.Clear();
+        ResetCreateInput();
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        showCreateModal = false;
+        ClearMessage();
+    }
+
+    private void ResetCreateInput()
+    {
+        createInput.Email = "";
+        createInput.TwitterUsername = "";
+        createInput.AuthorId = "";
+        createInput.Password = "";
+        createInput.Enabled = true;
+        createInput.TwitterAuthorizationStatus = "";
+        createInput.Role = assignableRoles.Contains(EApplicationRoles.User)
+            ? EApplicationRoles.User
+            : assignableRoles.First();
+    }
+
+    private async Task CreateUserAsync()
+    {
+        ClearMessage();
+
+        if (!CanAssignRole(createInput.Role))
+        {
+            SetError("Você não pode atribuir essa role.");
+            return;
+        }
+
+        await EnsureRoleExistsAsync(createInput.Role);
+
+        var email = createInput.Email.Trim();
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            AuthorId = createInput.AuthorId?.Trim() ?? "",
+            TwitterUsername = TwitterUserAuthorizationService.NormalizeUsername(createInput.TwitterUsername),
+            Enabled = createInput.Enabled
+        };
+
+        var result = await UserManager.CreateAsync(user, createInput.Password);
+        if (!SetIdentityResult(result))
+        {
+            return;
+        }
+
+        result = await UserManager.AddToRoleAsync(user, RoleName(createInput.Role));
+        if (!SetIdentityResult(result))
+        {
+            await UserManager.DeleteAsync(user);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(createInput.TwitterAuthorizationStatus))
+        {
+            var authResult = await TwitterAuthorizationService.SetApplicationUserAuthorizationAsync(
+                user,
+                createInput.TwitterAuthorizationStatus,
+                currentUserId,
+                "ADMIN_CREATE_USER");
+
+            if (!authResult.Succeeded)
+            {
+                pageNumber = 1;
+                await LoadUsersAsync();
+                showCreateModal = false;
+                SetError($"Usuario criado, mas nao foi possivel alterar o acesso ao bot: {authResult.Message}");
+                return;
+            }
+        }
+
+        ResetCreateInput();
+        showCreateModal = false;
+
+        pageNumber = 1;
+        await LoadUsersAsync();
+        SetSuccess("Usuário criado com sucesso.");
+    }
+
+    private async Task StartEditAsync(UserRow user)
+    {
+        ClearMessage();
+        showCreateModal = false;
+        editInput = new EditUserInput
+        {
+            Id = user.Id,
+            Email = user.Email,
+            TwitterUsername = user.TwitterUsername,
+            AuthorId = user.AuthorId,
+            Enabled = user.Enabled,
+            Role = user.Role,
+            IsCurrentUser = user.IsCurrentUser,
+            TwitterAuthorizationStatus = user.TwitterAuthorizationStatus,
+            OriginalTwitterAuthorizationStatus = user.TwitterAuthorizationStatus,
+            InviteCredits = user.InviteCredits,
+            InvitesSent = user.InvitesSent,
+            InvitesAccepted = user.InvitesAccepted
+        };
+
+        await LoadEditAuthHistoryAsync(user.AuthorId);
+    }
+
+    private void CancelEdit()
+    {
+        editInput = null;
+        editAuthHistory.Clear();
+    }
+
+    private async Task UpdateUserAsync()
+    {
+        ClearMessage();
+
+        if (editInput is null)
+        {
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(editInput.Id.ToString());
+        if (user is null)
+        {
+            SetError("Usuário não encontrado.");
+            await LoadUsersAsync();
+            editInput = null;
+            return;
+        }
+
+        var currentRole = await GetHighestRoleAsync(user);
+        if (!CanManageRole(currentRole))
+        {
+            SetError("Você não pode editar um usuário com role superior à sua.");
+            return;
+        }
+
+        var requestedRole = user.Id == currentUserId ? currentRole : editInput.Role;
+        var requestedEnabled = user.Id == currentUserId ? user.Enabled : editInput.Enabled;
+
+        if (!CanAssignRole(requestedRole))
+        {
+            SetError("Você não pode atribuir essa role.");
+            return;
+        }
+
+        if (!await HasEnabledAdminAfterChangeAsync(user.Id, requestedEnabled, requestedRole))
+        {
+            SetError("A alteração deixaria o sistema sem nenhum admin ativo.");
+            return;
+        }
+
+        var email = editInput.Email.Trim();
+        var result = await UserManager.SetUserNameAsync(user, email);
+        if (!SetIdentityResult(result))
+        {
+            return;
+        }
+
+        result = await UserManager.SetEmailAsync(user, email);
+        if (!SetIdentityResult(result))
+        {
+            return;
+        }
+
+        var securityStampMustChange = false;
+        var authorId = editInput.AuthorId?.Trim() ?? "";
+        var twitterUsername = TwitterUserAuthorizationService.NormalizeUsername(editInput.TwitterUsername);
+        var authorIdChanged = user.AuthorId != authorId;
+        var twitterUsernameChanged = !string.Equals(user.TwitterUsername, twitterUsername, StringComparison.OrdinalIgnoreCase);
+        var enabledChanged = user.Enabled != requestedEnabled;
+
+        if (authorIdChanged || twitterUsernameChanged || enabledChanged)
+        {
+            user.AuthorId = authorId;
+            user.TwitterUsername = twitterUsername;
+            user.Enabled = requestedEnabled;
+            result = await UserManager.UpdateAsync(user);
+            if (!SetIdentityResult(result))
+            {
+                return;
+            }
+
+            securityStampMustChange = enabledChanged;
+        }
+
+        if (currentRole != requestedRole)
+        {
+            await EnsureRoleExistsAsync(requestedRole);
+            result = await SetSingleRoleAsync(user, requestedRole);
+            if (!SetIdentityResult(result))
+            {
+                return;
+            }
+
+            securityStampMustChange = true;
+        }
+
+        var requestedTwitterStatus = editInput.TwitterAuthorizationStatus?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(editInput.OriginalTwitterAuthorizationStatus) &&
+            string.IsNullOrWhiteSpace(requestedTwitterStatus))
+        {
+            SetError("Escolha Permitido ou Bloqueado para alterar um usuario que ja tem historico no bot.");
+            return;
+        }
+
+        var twitterStatusChanged = !string.Equals(
+            requestedTwitterStatus,
+            editInput.OriginalTwitterAuthorizationStatus,
+            StringComparison.OrdinalIgnoreCase);
+
+        if (twitterStatusChanged ||
+            (!string.IsNullOrWhiteSpace(requestedTwitterStatus) && (authorIdChanged || twitterUsernameChanged)))
+        {
+            var authResult = await TwitterAuthorizationService.SetApplicationUserAuthorizationAsync(
+                user,
+                requestedTwitterStatus,
+                currentUserId,
+                "ADMIN_UPDATE_USER");
+
+            if (!authResult.Succeeded)
+            {
+                SetError(authResult.Message);
+                return;
+            }
+        }
+
+        if (editInput.InvitesToAdd < 0)
+        {
+            SetError("A quantidade de convites deve ser positiva.");
+            return;
+        }
+
+        if (editInput.InvitesToAdd > 0)
+        {
+            if (IsAdminRole(requestedRole))
+            {
+                SetError("Administradores ja possuem convites ilimitados.");
+                return;
+            }
+
+            var inviteResult = await TwitterAuthorizationService.AddInviteCreditsAsync(
+                user,
+                editInput.InvitesToAdd,
+                currentUserId,
+                "ADMIN_ADD_INVITES");
+
+            if (!inviteResult.Succeeded)
+            {
+                SetError(inviteResult.Message);
+                return;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(editInput.NewPassword))
+        {
+            if (editInput.NewPassword.Length < 6)
+            {
+                SetError("A nova senha deve ter pelo menos 6 caracteres.");
+                return;
+            }
+
+            var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+            result = await UserManager.ResetPasswordAsync(user, token, editInput.NewPassword);
+            if (!SetIdentityResult(result))
+            {
+                return;
+            }
+
+            securityStampMustChange = true;
+        }
+
+        if (securityStampMustChange)
+        {
+            await UserManager.UpdateSecurityStampAsync(user);
+        }
+
+        await LoadUsersAsync();
+        editInput = null;
+        SetSuccess("Usuário atualizado com sucesso.");
+    }
+
+    private async Task DeleteUserAsync(long userId)
+    {
+        ClearMessage();
+
+        if (currentUserId == userId)
+        {
+            SetError("Você não pode excluir o próprio usuário.");
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            SetError("Usuário não encontrado.");
+            await LoadUsersAsync();
+            return;
+        }
+
+        var role = await GetHighestRoleAsync(user);
+        if (!CanManageRole(role))
+        {
+            SetError("Você não pode excluir um usuário com role superior à sua.");
+            return;
+        }
+
+        if (!await HasEnabledAdminAfterChangeAsync(user.Id, false, EApplicationRoles.User))
+        {
+            SetError("A exclusão deixaria o sistema sem nenhum admin ativo.");
+            return;
+        }
+
+        var result = await UserManager.DeleteAsync(user);
+        if (!SetIdentityResult(result))
+        {
+            return;
+        }
+
+        if (editInput?.Id == userId)
+        {
+            editInput = null;
+        }
+
+        await LoadUsersAsync();
+        SetSuccess("Usuário excluído com sucesso.");
+    }
+
+    private async Task LoadEditAuthHistoryAsync(string authorId)
+    {
+        editAuthHistory.Clear();
+
+        if (string.IsNullOrWhiteSpace(authorId))
+            return;
+
+        var history = await DbContext.AuthorizedTwitterUserHistory
+            .AsNoTracking()
+            .Where(x => x.AuthorId == authorId)
+            .OrderByDescending(x => x.ChangedAtUtc)
+            .Take(20)
+            .ToListAsync();
+
+        editAuthHistory.AddRange(history);
+    }
+
+    private async Task<EApplicationRoles> GetHighestRoleAsync(ApplicationUser user)
+    {
+        var roleNames = await UserManager.GetRolesAsync(user);
+        var roles = roleNames
+            .Select(ParseRole)
+            .Where(role => role.HasValue)
+            .Select(role => role.Value)
+            .ToArray();
+
+        return roles.Length == 0
+            ? EApplicationRoles.User
+            : roles.OrderByDescending(role => (int)role).First();
+    }
+
+    private async Task EnsureRoleExistsAsync(EApplicationRoles role)
+    {
+        var roleName = RoleName(role);
+        if (!await RoleManager.RoleExistsAsync(roleName))
+        {
+            await RoleManager.CreateAsync(new ApplicationRole { Role = role });
+        }
+    }
+
+    private async Task<IdentityResult> SetSingleRoleAsync(ApplicationUser user, EApplicationRoles role)
+    {
+        var roleNames = Enum.GetValues<EApplicationRoles>()
+            .Select(RoleName)
+            .ToArray();
+        var currentRoles = await UserManager.GetRolesAsync(user);
+        var rolesToRemove = currentRoles.Where(roleNames.Contains).ToArray();
+
+        if (rolesToRemove.Length > 0)
+        {
+            var removeResult = await UserManager.RemoveFromRolesAsync(user, rolesToRemove);
+            if (!removeResult.Succeeded)
+            {
+                return removeResult;
+            }
+        }
+
+        return await UserManager.AddToRoleAsync(user, RoleName(role));
+    }
+
+    private async Task<bool> HasEnabledAdminAfterChangeAsync(long changedUserId, bool changedEnabled, EApplicationRoles changedRole)
+    {
+        if (changedEnabled && IsAdminRole(changedRole))
+        {
+            return true;
+        }
+
+        var adminRoleNames = Enum.GetValues<EApplicationRoles>()
+            .Where(IsAdminRole)
+            .Select(RoleName)
+            .ToArray();
+
+        return await (
+            from user in DbContext.Users.AsNoTracking()
+            join userRole in DbContext.UserRoles.AsNoTracking() on user.Id equals userRole.UserId
+            join role in DbContext.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+            where user.Id != changedUserId &&
+                  user.Enabled &&
+                  adminRoleNames.Contains(role.Name)
+            select user.Id)
+            .AnyAsync();
+    }
+
+    private async Task<Dictionary<long, EApplicationRoles>> GetHighestRolesByUserIdAsync(long[] userIds)
+    {
+        if (userIds.Length == 0)
+        {
+            return new Dictionary<long, EApplicationRoles>();
+        }
+
+        var roles = await (
+            from userRole in DbContext.UserRoles.AsNoTracking()
+            join role in DbContext.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+            where userIds.Contains(userRole.UserId)
+            select new
+            {
+                userRole.UserId,
+                role.Name
+            })
+            .ToListAsync();
+
+        return roles
+            .GroupBy(role => role.UserId)
+            .ToDictionary(
+                group => group.Key,
+                group => GetHighestRole(group.Select(role => role.Name)));
+    }
+
+    private bool CanManageUser(UserRow user)
+    {
+        return CanManageRole(user.Role);
+    }
+
+    private bool CanDeleteUser(UserRow user)
+    {
+        return !user.IsCurrentUser && CanManageUser(user);
+    }
+
+    private bool CanManageRole(EApplicationRoles role)
+    {
+        return (int)role <= (int)currentUserRole;
+    }
+
+    private bool CanAssignRole(EApplicationRoles role)
+    {
+        return assignableRoles.Contains(role);
+    }
+
+    private static bool IsAdminRole(EApplicationRoles role)
+    {
+        return (int)role >= (int)EApplicationRoles.Admin;
+    }
+
+    private static string RoleName(EApplicationRoles role)
+    {
+        return ((int)role).ToString();
+    }
+
+    private static EApplicationRoles? ParseRole(string roleName)
+    {
+        if (int.TryParse(roleName, out var numericRole) &&
+            Enum.IsDefined(typeof(EApplicationRoles), numericRole))
+        {
+            return (EApplicationRoles)numericRole;
+        }
+
+        if (Enum.TryParse<EApplicationRoles>(roleName, ignoreCase: true, out var namedRole) &&
+            Enum.IsDefined(typeof(EApplicationRoles), namedRole))
+        {
+            return namedRole;
+        }
+
+        return null;
+    }
+
+    private static EApplicationRoles GetHighestRole(IEnumerable<string> roleNames)
+    {
+        var roles = roleNames
+            .Select(ParseRole)
+            .Where(role => role.HasValue)
+            .Select(role => role.Value)
+            .ToArray();
+
+        return roles.Length == 0
+            ? EApplicationRoles.User
+            : roles.OrderByDescending(role => (int)role).First();
+    }
+
+    private static string GetRoleLabel(EApplicationRoles role)
+    {
+        return role.GetEnumDescription();
+    }
+
+    private static string FormatTwitterUsername(string username)
+    {
+        return string.IsNullOrWhiteSpace(username)
+            ? "-"
+            : $"@{TwitterUserAuthorizationService.NormalizeUsername(username)}";
+    }
+
+    private static string GetTwitterAuthorizationLabel(string status)
+    {
+        return status switch
+        {
+            AuthorizedTwitterUser.STATUS_AUTHORIZED => "Permitido",
+            AuthorizedTwitterUser.STATUS_NOT_AUTHORIZED => "Bloqueado",
+            AuthorizedTwitterUser.STATUS_INVITED => "Convidado",
+            _ => "Sem registro"
+        };
+    }
+
+    private static string GetTwitterAuthorizationBadgeClass(string status)
+    {
+        return status switch
+        {
+            AuthorizedTwitterUser.STATUS_AUTHORIZED => "text-bg-success",
+            AuthorizedTwitterUser.STATUS_NOT_AUTHORIZED => "text-bg-danger",
+            AuthorizedTwitterUser.STATUS_INVITED => "text-bg-warning",
+            _ => "text-bg-secondary"
+        };
+    }
+
+    private static string FormatDate(DateTime? value)
+    {
+        return value.HasValue
+            ? value.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            : "-";
+    }
+
+    private static string FormatHistorySource(AuthorizedTwitterUserHistory history)
+    {
+        if (history.ChangedByApplicationUserId.HasValue)
+            return $"admin #{history.ChangedByApplicationUserId.Value}";
+
+        if (!string.IsNullOrWhiteSpace(history.ChangedByAuthorId))
+            return $"Twitter {history.ChangedByAuthorId}";
+
+        return string.IsNullOrWhiteSpace(history.Reason) ? "-" : history.Reason;
+    }
+
+    private bool SetIdentityResult(IdentityResult result)
+    {
+        if (result.Succeeded)
+        {
+            return true;
+        }
+
+        SetError(string.Join(" ", result.Errors.Select(error => error.Description)));
+        return false;
+    }
+
+    private void SetSuccess(string value)
+    {
+        message = value;
+        messageCss = "alert-success";
+    }
+
+    private void SetError(string value)
+    {
+        message = value;
+        messageCss = "alert-danger";
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+        messageCss = "alert-info";
+    }
+
+    private sealed class UserRow
+    {
+        public long Id { get; set; }
+        public string Email { get; set; } = "";
+        public string TwitterUsername { get; set; } = "";
+        public string AuthorId { get; set; } = "";
+        public string TwitterAuthorizationStatus { get; set; } = "";
+        public DateTime? AuthorizationDate { get; set; }
+        public DateTime? DeauthorizationDate { get; set; }
+        public int InviteCredits { get; set; }
+        public int InvitesSent { get; set; }
+        public int InvitesAccepted { get; set; }
+        public EApplicationRoles Role { get; set; } = EApplicationRoles.User;
+        public bool Enabled { get; set; }
+        public bool IsCurrentUser { get; set; }
+    }
+
+    private sealed class SearchInput
+    {
+        public string Term { get; set; } = "";
+    }
+
+    private sealed class CreateUserInput
+    {
+        [Required(ErrorMessage = "Informe o email.")]
+        [EmailAddress(ErrorMessage = "Informe um email válido.")]
+        public string Email { get; set; } = "";
+
+        [StringLength(15, ErrorMessage = "O @ do Twitter deve ter no maximo {1} caracteres.")]
+        [RegularExpression(@"^@?[A-Za-z0-9_]*$", ErrorMessage = "Informe apenas letras, numeros e _ no @ do Twitter.")]
+        public string TwitterUsername { get; set; } = "";
+
+        public string AuthorId { get; set; } = "";
+        public string TwitterAuthorizationStatus { get; set; } = "";
+
+        [Required(ErrorMessage = "Informe a senha.")]
+        [StringLength(100, ErrorMessage = "A senha deve ter entre {2} e {1} caracteres.", MinimumLength = 6)]
+        public string Password { get; set; } = "";
+
+        public EApplicationRoles Role { get; set; } = EApplicationRoles.User;
+        public bool Enabled { get; set; } = true;
+    }
+
+    private sealed class EditUserInput
+    {
+        public long Id { get; set; }
+
+        [Required(ErrorMessage = "Informe o email.")]
+        [EmailAddress(ErrorMessage = "Informe um email válido.")]
+        public string Email { get; set; } = "";
+
+        [StringLength(15, ErrorMessage = "O @ do Twitter deve ter no maximo {1} caracteres.")]
+        [RegularExpression(@"^@?[A-Za-z0-9_]*$", ErrorMessage = "Informe apenas letras, numeros e _ no @ do Twitter.")]
+        public string TwitterUsername { get; set; } = "";
+
+        public string AuthorId { get; set; } = "";
+        public string TwitterAuthorizationStatus { get; set; } = "";
+        public string OriginalTwitterAuthorizationStatus { get; set; } = "";
+        public string NewPassword { get; set; } = "";
+        public int InviteCredits { get; set; }
+        public int InvitesSent { get; set; }
+        public int InvitesAccepted { get; set; }
+        public int InvitesToAdd { get; set; }
+        public EApplicationRoles Role { get; set; } = EApplicationRoles.User;
+        public bool Enabled { get; set; }
+        public bool IsCurrentUser { get; set; }
+    }
+}

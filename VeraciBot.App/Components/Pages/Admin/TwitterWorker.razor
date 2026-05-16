@@ -1,0 +1,960 @@
+@page "/admin/twitter-worker"
+@rendermode InteractiveServer
+@attribute [RoleRequirement(EApplicationRoles.Admin)]
+@implements IDisposable
+
+@using System.Globalization
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Rendering
+@using Microsoft.EntityFrameworkCore
+@using VeraciBot.App.Data
+@using VeraciBot.App.Entities
+@using VeraciBot.App.External
+@using VeraciBot.App.Services
+
+@inject TwitterMentionsRuntimeStore RuntimeStore
+@inject TwitterAPI TwitterApi
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Status do Bot</PageTitle>
+
+<h1>Status do Bot</h1>
+
+<div class="row g-3 mb-3">
+    <div class="col-xl-4">
+        <section class="border rounded p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Job Twitter</h2>
+                    <div class="text-muted small">Leitura de mencoes e alimentacao da fila</div>
+                </div>
+                <span class="badge @(snapshot.WorkerRunning ? "text-bg-success" : "text-bg-secondary")">
+                    @(snapshot.WorkerRunning ? "Rodando" : "Parado")
+                </span>
+            </div>
+
+            <dl class="row mb-0 small">
+                <dt class="col-sm-5">Ultima leitura</dt>
+                <dd class="col-sm-7">@FormatDate(snapshot.LastPollCompletedAtUtc)</dd>
+
+                <dt class="col-sm-5">Ultimo ciclo</dt>
+                <dd class="col-sm-7">@snapshot.LastFetchedCount lidas, @snapshot.LastEnqueuedCount enfileiradas</dd>
+
+                <dt class="col-sm-5">Proximo cursor</dt>
+                <dd class="col-sm-7">@snapshot.CursorStartTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                <dt class="col-sm-5">Fila atual</dt>
+                <dd class="col-sm-7">@snapshot.Queue.Count itens</dd>
+            </dl>
+        </section>
+    </div>
+
+    <div class="col-xl-4">
+        <section class="border rounded p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Agent / Processor</h2>
+                    <div class="text-muted small">Respostas automaticas e comandos do VeraciBot</div>
+                </div>
+                <span class="badge @GetProcessorBadgeClass()">@GetProcessorStatusText()</span>
+            </div>
+
+            <dl class="row mb-0 small">
+                <dt class="col-sm-5">Mencao ativa</dt>
+                <dd class="col-sm-7">@GetCurrentMentionText()</dd>
+
+                <dt class="col-sm-5">Inicio do processamento</dt>
+                <dd class="col-sm-7">@FormatDate(snapshot.LastProcessingStartedAtUtc)</dd>
+
+                <dt class="col-sm-5">Ultima resposta</dt>
+                <dd class="col-sm-7">@FormatDate(snapshot.LastProcessedAtUtc)</dd>
+
+                <dt class="col-sm-5">Processadas</dt>
+                <dd class="col-sm-7">@snapshot.Stats.TotalProcessed concluidas, @snapshot.Stats.TotalSkipped ignoradas</dd>
+            </dl>
+        </section>
+    </div>
+
+    <div class="col-xl-4">
+        <section class="border rounded p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Saldo X API</h2>
+                    <div class="text-muted small">Consumo de Posts do projeto</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="RefreshTwitterUsageAsync" disabled="@usageLoading">
+                    @(usageLoading ? "Atualizando" : "Atualizar")
+                </button>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(usageError))
+            {
+                <div class="alert alert-warning py-2 small mb-0" role="alert">
+                    @usageError
+                </div>
+            }
+            else if (twitterUsage is null)
+            {
+                <p class="mb-0 text-muted small">Sem dados de uso carregados.</p>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-baseline gap-2">
+                        <div class="text-muted small">Leituras restantes</div>
+                        <strong>@FormatLong(twitterUsage.RemainingPosts)</strong>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar @GetUsageProgressClass(twitterUsage)"
+                             role="progressbar"
+                             style="@GetUsageProgressStyle(twitterUsage)"
+                             aria-valuenow="@GetUsagePercent(twitterUsage)"
+                             aria-valuemin="0"
+                             aria-valuemax="100"></div>
+                    </div>
+                </div>
+
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-5">Uso atual</dt>
+                    <dd class="col-sm-7">@FormatLong(twitterUsage.ProjectUsage) de @FormatLong(twitterUsage.ProjectCap)</dd>
+
+                    <dt class="col-sm-5">Projeto</dt>
+                    <dd class="col-sm-7">@FormatText(twitterUsage.ProjectId)</dd>
+
+                    <dt class="col-sm-5">Reset da cota</dt>
+                    <dd class="col-sm-7">@FormatCapResetDay(twitterUsage.CapResetDay)</dd>
+
+                    <dt class="col-sm-5">Atualizado</dt>
+                    <dd class="col-sm-7">@FormatDate(twitterUsage.RetrievedAtUtc)</dd>
+                </dl>
+            }
+        </section>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(snapshot.LastError))
+{
+    <div class="alert alert-danger" role="alert">
+        <strong>Erro no job Twitter:</strong> @snapshot.LastError
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(snapshot.LastProcessorError))
+{
+    <div class="alert alert-danger" role="alert">
+        <strong>Erro no agent:</strong> @snapshot.LastProcessorError
+    </div>
+}
+
+<div class="row g-3 mb-3">
+    @foreach (var card in SummaryCards)
+    {
+        <div class="col-6 col-xl-3">
+            <div class="border rounded p-3 h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <div class="text-muted small">@card.Title</div>
+                        <div class="fs-4 fw-semibold">@card.Value</div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(card.BadgeText))
+                    {
+                        <span class="badge @card.BadgeCss">@card.BadgeText</span>
+                    }
+                </div>
+                @if (!string.IsNullOrWhiteSpace(card.Detail))
+                {
+                    <div class="text-muted small mt-2">@card.Detail</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-xl-6">
+        <section class="border rounded p-3 h-100">
+            <h2 class="h5">Interacoes do agent</h2>
+            @{
+                var interactionMetrics = InteractionMetrics;
+                var interactionMax = GetMaxMetricValue(interactionMetrics);
+            }
+            @MetricBars(interactionMetrics, interactionMax)
+        </section>
+    </div>
+
+    <div class="col-xl-6">
+        <section class="border rounded p-3 h-100">
+            <h2 class="h5">Checagens e debates</h2>
+            @{
+                var verificationMetrics = VerificationMetrics;
+                var verificationMax = GetMaxMetricValue(verificationMetrics);
+            }
+            @MetricBars(verificationMetrics, verificationMax)
+        </section>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-xl-6">
+        <section class="border rounded p-3 h-100">
+            <h2 class="h5">Resultados mais comuns</h2>
+            @{
+                var resultMetrics = TopResultMetrics;
+                var resultMax = GetMaxMetricValue(resultMetrics);
+            }
+            @MetricBars(resultMetrics, resultMax)
+        </section>
+    </div>
+
+    <div class="col-xl-6">
+        <section class="border rounded p-3 h-100">
+            <h2 class="h5">Fila de mencoes</h2>
+            <p class="text-muted small mb-2">
+                Itens aguardando processamento pelo agent.
+            </p>
+
+            @if (snapshot.Queue.Count == 0)
+            {
+                <p class="mb-0">Fila vazia.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Id</th>
+                                <th scope="col">Autor</th>
+                                <th scope="col">Tweet</th>
+                                <th scope="col">Criado em</th>
+                                <th scope="col">Fila</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in snapshot.Queue.Take(100))
+                            {
+                                <tr>
+                                    <td>@item.Id</td>
+                                    <td>@item.AuthorId</td>
+                                    <td>@item.Text</td>
+                                    <td>@item.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    <td>@item.EnqueuedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12">
+        <section class="border rounded p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <div>
+                    <h2 class="h5 mb-0">Mencoes processadas</h2>
+                    <div class="text-muted small">Ultimas 10 mencoes, atualizadas automaticamente.</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="LoadRecentMentionsAsync" disabled="@mentionsLoading">
+                    @(mentionsLoading ? "Atualizando" : "Atualizar")
+                </button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(mentionsError))
+            {
+                <div class="alert alert-warning py-2 small mb-0" role="alert">@mentionsError</div>
+            }
+            else if (recentMentions.Count == 0)
+            {
+                <p class="mb-0 text-muted">Sem mencoes processadas ainda.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Quando</th>
+                                <th>Autor</th>
+                                <th>Resultado</th>
+                                <th>Mencao</th>
+                                <th>Link</th>
+                                <th class="text-end">Acao</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var mention in recentMentions)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@mention.ProcessedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    <td>@mention.AuthorId</td>
+                                    <td><span class="badge text-bg-secondary">@TwitterMentionsRuntimeStore.GetResultLabel(mention.Result)</span></td>
+                                    <td class="text-break">@mention.Text</td>
+                                    <td class="text-nowrap">
+                                        <a href="@GetMentionUrl(mention)" target="_blank" rel="noopener noreferrer">Abrir</a>
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ShowLlmHistoryAsync(mention.TweetId)">LLM</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+
+    <div class="col-xl-6">
+        <section class="border rounded p-3 h-100">
+            <h2 class="h5">Log do job Twitter</h2>
+            @LogTable(snapshot.TwitterLogs)
+        </section>
+    </div>
+
+    <div class="col-xl-6">
+        <section class="border rounded p-3 h-100">
+            <h2 class="h5">Log do agent</h2>
+            @LogTable(snapshot.AgentLogs)
+        </section>
+    </div>
+</div>
+
+@if (isLlmModalOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" style="background-color: rgba(0,0,0,.45);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Historico LLM da mencao @selectedMentionId</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="ClearLlmHistory"></button>
+                </div>
+                <div class="modal-body">
+                    @if (llmHistoryLoading)
+                    {
+                        <p class="mb-0 text-muted">Carregando historico LLM...</p>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(llmHistoryError))
+                    {
+                        <div class="alert alert-warning py-2 small mb-0" role="alert">@llmHistoryError</div>
+                    }
+                    else if (selectedLlmHistory.Count == 0)
+                    {
+                        <p class="mb-0 text-muted">Nao ha registros LLM para esta mencao.</p>
+                    }
+                    else
+                    {
+                        @foreach (var item in selectedLlmHistory)
+                        {
+                            <section class="border rounded p-3 mb-3">
+                                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                    <div class="small text-muted">@item.RequestedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                    <div>
+                                        <span class="badge text-bg-secondary me-1">@item.Model</span>
+                                        <span class="badge @(item.Success ? "text-bg-success" : "text-bg-danger")">@item.LlmResult</span>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 small mb-3">
+                                    <div class="col-md-4"><strong>Prompt:</strong> @(item.PromptTokens?.ToString("N0", BrazilianCulture) ?? "-")</div>
+                                    <div class="col-md-4"><strong>Completion:</strong> @(item.CompletionTokens?.ToString("N0", BrazilianCulture) ?? "-")</div>
+                                    <div class="col-md-4"><strong>Total:</strong> @(item.TotalTokens?.ToString("N0", BrazilianCulture) ?? "-")</div>
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(item.MentionText))
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Input da mencao</div>
+                                        <pre class="bg-body-tertiary border rounded p-2 small mb-0">@item.MentionText</pre>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(item.ResponseText))
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Resposta gerada pela LLM</div>
+                                        <pre class="bg-body-tertiary border rounded p-2 small mb-0">@item.ResponseText</pre>
+                                    </div>
+                                }
+
+                                @if (item.ProcessSteps.Count > 0)
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Passo a passo</div>
+                                        <ol class="small mb-0">
+                                            @foreach (var step in item.ProcessSteps)
+                                            {
+                                                <li>@step</li>
+                                            }
+                                        </ol>
+                                    </div>
+                                }
+
+                                @if (item.ConsultedNewsLinks.Count > 0)
+                                {
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">Links de noticias consultados</div>
+                                        <ul class="small mb-0">
+                                            @foreach (var link in item.ConsultedNewsLinks)
+                                            {
+                                                <li><a href="@link" target="_blank" rel="noopener noreferrer">@link</a></li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </section>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ClearLlmHistory">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo BrazilianCulture = CultureInfo.GetCultureInfo("pt-BR");
+
+    private TwitterMentionsRuntimeSnapshot snapshot = new(
+        WorkerRunning: false,
+        ProcessorRunning: false,
+        LastPollStartedAtUtc: null,
+        LastPollCompletedAtUtc: null,
+        LastProcessingStartedAtUtc: null,
+        LastProcessedAtUtc: null,
+        CursorStartTimeUtc: DateTimeOffset.UtcNow,
+        LastFetchedCount: 0,
+        LastEnqueuedCount: 0,
+        LastError: string.Empty,
+        LastProcessorError: string.Empty,
+        CurrentMentionId: string.Empty,
+        CurrentMentionAuthorId: string.Empty,
+        Stats: EmptyStats(),
+        Queue: [],
+        TwitterLogs: [],
+        AgentLogs: [],
+        Logs: []
+    );
+    private TwitterAPI.TwitterUsageSummary twitterUsage;
+    private bool usageLoading;
+    private string usageError = string.Empty;
+    private readonly List<ProcessedMention> recentMentions = [];
+    private readonly List<LlmHistoryView> selectedLlmHistory = [];
+    private bool mentionsLoading;
+    private string mentionsError = string.Empty;
+    private bool llmHistoryLoading;
+    private string llmHistoryError = string.Empty;
+    private string selectedMentionId = string.Empty;
+    private bool isLlmModalOpen;
+    private int lastRecentMentionsVersion = -1;
+
+    private IReadOnlyList<DashboardCard> SummaryCards => new List<DashboardCard>
+    {
+        new("Lidas", snapshot.Stats.TotalFetched.ToString(), $"{snapshot.Stats.TotalEnqueued} entraram na fila", "Twitter", "text-bg-info"),
+        new("Processadas", snapshot.Stats.TotalProcessed.ToString(), $"{snapshot.Stats.AgentReplies} respostas do agent", "Agent", "text-bg-success"),
+        new("Ignoradas", snapshot.Stats.TotalSkipped.ToString(), $"{snapshot.Stats.UnauthorizedMentions} nao autorizadas", null, null),
+        new("Erros", snapshot.Stats.TotalErrors.ToString(), "Falhas durante processamento", snapshot.Stats.TotalErrors > 0 ? "Atencao" : "OK", snapshot.Stats.TotalErrors > 0 ? "text-bg-danger" : "text-bg-success"),
+        new("Checagens", snapshot.Stats.ThreadFactChecks.ToString(), $"{snapshot.Stats.ThreadFactFalse} falsas, {snapshot.Stats.ThreadFactTrue} verdadeiras", null, null),
+        new("Debates", snapshot.Stats.ThreadArgumentAnalyses.ToString(), $"{snapshot.Stats.DebateDraws} empates", null, null),
+        new("Convites", snapshot.Stats.InviteRequests.ToString(), $"{snapshot.Stats.InvitesAccepted} aceitos, {snapshot.Stats.InvitesRefused} recusados", null, null),
+        new("Comandos", (snapshot.Stats.HelpRequests + snapshot.Stats.ScoreRequests + snapshot.Stats.ScoreboardRequests).ToString(), "Ajuda, pontos e placar", null, null)
+    };
+
+    private IReadOnlyList<DashboardMetric> InteractionMetrics => new List<DashboardMetric>
+    {
+        new("Ajuda", snapshot.Stats.HelpRequests, "bg-info"),
+        new("Pontuacao", snapshot.Stats.ScoreRequests, "bg-primary"),
+        new("Placar", snapshot.Stats.ScoreboardRequests, "bg-primary"),
+        new("Convites", snapshot.Stats.InviteRequests, "bg-success"),
+        new("Convites com erro", snapshot.Stats.InviteErrors, "bg-warning"),
+        new("Aceites", snapshot.Stats.InvitesAccepted, "bg-success"),
+        new("Recusas", snapshot.Stats.InvitesRefused, "bg-secondary"),
+        new("Desconhecidos", snapshot.Stats.UnknownCommands, "bg-dark")
+    };
+
+    private IReadOnlyList<DashboardMetric> VerificationMetrics => new List<DashboardMetric>
+    {
+        new("Checagem: verdadeiro", snapshot.Stats.ThreadFactTrue, "bg-success"),
+        new("Checagem: falso", snapshot.Stats.ThreadFactFalse, "bg-danger"),
+        new("Checagem: inconclusivo", snapshot.Stats.ThreadFactUncertain, "bg-secondary"),
+        new("Debate: autor A", snapshot.Stats.DebateAuthorAWins, "bg-primary"),
+        new("Debate: autor B", snapshot.Stats.DebateAuthorBWins, "bg-info"),
+        new("Debate: empate", snapshot.Stats.DebateDraws, "bg-secondary"),
+        new("Argumentacoes", snapshot.Stats.ThreadArgumentAnalyses, "bg-warning"),
+        new("Quem tem razao", snapshot.Stats.ThreadWhoIsRightAnalyses, "bg-dark")
+    };
+
+    private IReadOnlyList<DashboardMetric> TopResultMetrics => snapshot.Stats.ResultCounts
+        .OrderByDescending(x => x.Value)
+        .ThenBy(x => x.Key)
+        .Take(8)
+        .Select(x => new DashboardMetric(TwitterMentionsRuntimeStore.GetResultLabel(x.Key), x.Value, "bg-info"))
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        snapshot = RuntimeStore.GetSnapshot();
+        RuntimeStore.Updated += HandleUpdated;
+        await RefreshTwitterUsageAsync();
+        await LoadRecentMentionsAsync();
+    }
+
+    public void Dispose()
+    {
+        RuntimeStore.Updated -= HandleUpdated;
+    }
+
+    private void HandleUpdated()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            var nextSnapshot = RuntimeStore.GetSnapshot();
+            var nextMentionsVersion = GetRecentMentionsVersion(nextSnapshot);
+            var shouldRefreshRecentMentions = nextMentionsVersion != lastRecentMentionsVersion;
+
+            snapshot = nextSnapshot;
+
+            if (shouldRefreshRecentMentions)
+            {
+                await LoadRecentMentionsAsync(showLoading: false);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private async Task RefreshTwitterUsageAsync()
+    {
+        if (usageLoading)
+            return;
+
+        usageLoading = true;
+        usageError = string.Empty;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            twitterUsage = await TwitterApi.GetUsageSummaryAsync();
+        }
+        catch (Exception ex)
+        {
+            usageError = $"Nao foi possivel consultar o uso da API do X/Twitter: {ex.Message}";
+        }
+        finally
+        {
+            usageLoading = false;
+        }
+    }
+
+    private async Task LoadRecentMentionsAsync()
+    {
+        await LoadRecentMentionsAsync(showLoading: true);
+    }
+
+    private async Task LoadRecentMentionsAsync(bool showLoading)
+    {
+        if (mentionsLoading)
+            return;
+
+        mentionsLoading = true;
+        mentionsError = string.Empty;
+
+        if (showLoading)
+            await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            recentMentions.Clear();
+            recentMentions.AddRange(await DbContext.ProcessedMentions
+                .AsNoTracking()
+                .OrderByDescending(x => x.ProcessedAtUtc)
+                .Take(10)
+                .ToListAsync());
+
+            lastRecentMentionsVersion = GetRecentMentionsVersion(snapshot);
+        }
+        catch (Exception ex)
+        {
+            mentionsError = $"Nao foi possivel carregar mencoes processadas: {ex.Message}";
+        }
+        finally
+        {
+            mentionsLoading = false;
+        }
+    }
+
+    private async Task ShowLlmHistoryAsync(string mentionId)
+    {
+        isLlmModalOpen = true;
+        selectedMentionId = mentionId;
+        llmHistoryLoading = true;
+        llmHistoryError = string.Empty;
+        selectedLlmHistory.Clear();
+
+        try
+        {
+            var data = await DbContext.LlmRequestHistory
+                .AsNoTracking()
+                .Where(x => x.ProcessedMentionTweetId == mentionId)
+                .OrderByDescending(x => x.RequestedAtUtc)
+                .Take(50)
+                .ToListAsync();
+
+            selectedLlmHistory.AddRange(data.Select(ToLlmView));
+        }
+        catch (Exception ex)
+        {
+            llmHistoryError = $"Nao foi possivel carregar historico LLM: {ex.Message}";
+        }
+        finally
+        {
+            llmHistoryLoading = false;
+        }
+    }
+
+    private void ClearLlmHistory()
+    {
+        isLlmModalOpen = false;
+        selectedMentionId = string.Empty;
+        llmHistoryError = string.Empty;
+        selectedLlmHistory.Clear();
+    }
+
+    private static LlmHistoryView ToLlmView(LlmRequestHistory data)
+    {
+        string mentionText = string.Empty;
+        string responseText = string.Empty;
+        var links = ParseStringArray(data.ConsultedNewsLinksJson);
+        var steps = ParseStringArray(data.ProcessStepsJson);
+
+        if (!string.IsNullOrWhiteSpace(data.MetadataJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(data.MetadataJson);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("mentionText", out var mentionElement))
+                    mentionText = mentionElement.GetString() ?? string.Empty;
+
+                if (root.TryGetProperty("responseText", out var responseElement))
+                    responseText = responseElement.GetString() ?? string.Empty;
+
+                if (links.Count == 0 && root.TryGetProperty("consultedNewsLinks", out var linksElement))
+                    links = ParseStringArray(linksElement.GetRawText());
+
+                if (steps.Count == 0 && root.TryGetProperty("processSteps", out var stepsElement))
+                    steps = ParseStringArray(stepsElement.GetRawText());
+            }
+            catch
+            {
+                // Ignore malformed metadata and keep raw fields empty.
+            }
+        }
+
+        return new LlmHistoryView
+        {
+            RequestedAtUtc = data.RequestedAtUtc,
+            Model = data.Model,
+            PromptTokens = data.PromptTokens,
+            CompletionTokens = data.CompletionTokens,
+            TotalTokens = data.TotalTokens,
+            LlmResult = data.LlmResult,
+            Success = data.Success,
+            MentionText = mentionText,
+            ResponseText = responseText,
+            MetadataJson = data.MetadataJson,
+            ConsultedNewsLinks = links,
+            ProcessSteps = steps
+        };
+    }
+
+    private static List<string> ParseStringArray(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<List<string>>(json);
+            return parsed?.Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private RenderFragment MetricBars(IReadOnlyList<DashboardMetric> metrics, int maxValue) => builder =>
+    {
+        if (metrics.Count == 0 || metrics.All(x => x.Value == 0))
+        {
+            builder.OpenElement(0, "p");
+            builder.AddAttribute(1, "class", "mb-0 text-muted");
+            builder.AddContent(2, "Sem dados ainda.");
+            builder.CloseElement();
+            return;
+        }
+
+        var sequence = 3;
+        foreach (var metric in metrics)
+        {
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", "mb-3");
+
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", "d-flex justify-content-between small mb-1");
+            builder.OpenElement(sequence++, "span");
+            builder.AddContent(sequence++, metric.Label);
+            builder.CloseElement();
+            builder.OpenElement(sequence++, "strong");
+            builder.AddContent(sequence++, metric.Value);
+            builder.CloseElement();
+            builder.CloseElement();
+
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", "progress");
+            builder.AddAttribute(sequence++, "style", "height: 8px;");
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", $"progress-bar {metric.CssClass}");
+            builder.AddAttribute(sequence++, "role", "progressbar");
+            builder.AddAttribute(sequence++, "style", GetBarStyle(metric.Value, maxValue));
+            builder.AddAttribute(sequence++, "aria-valuenow", metric.Value);
+            builder.AddAttribute(sequence++, "aria-valuemin", "0");
+            builder.AddAttribute(sequence++, "aria-valuemax", maxValue.ToString());
+            builder.CloseElement();
+            builder.CloseElement();
+
+            builder.CloseElement();
+        }
+    };
+
+    private RenderFragment LogTable(IReadOnlyList<TwitterWorkerLogEntry> logs) => builder =>
+    {
+        if (logs.Count == 0)
+        {
+            builder.OpenElement(0, "p");
+            builder.AddAttribute(1, "class", "mb-0 text-muted");
+            builder.AddContent(2, "Sem logs.");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(3, "div");
+        builder.AddAttribute(4, "class", "table-responsive");
+        builder.OpenElement(5, "table");
+        builder.AddAttribute(6, "class", "table table-sm align-middle");
+        builder.OpenElement(7, "thead");
+        builder.OpenElement(8, "tr");
+        AddHeader(builder, 9, "Data/Hora");
+        AddHeader(builder, 11, "Nivel");
+        AddHeader(builder, 13, "Mensagem");
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.OpenElement(15, "tbody");
+
+        var sequence = 16;
+        foreach (var log in logs.Take(250))
+        {
+            builder.OpenElement(sequence++, "tr");
+            builder.OpenElement(sequence++, "td");
+            builder.AddContent(sequence++, log.TimestampUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"));
+            builder.CloseElement();
+            builder.OpenElement(sequence++, "td");
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", $"badge {GetLevelClass(log.Level)}");
+            builder.AddContent(sequence++, log.Level);
+            builder.CloseElement();
+            builder.CloseElement();
+            builder.OpenElement(sequence++, "td");
+            builder.AddContent(sequence++, log.Message);
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private static void AddHeader(RenderTreeBuilder builder, int sequence, string title)
+    {
+        builder.OpenElement(sequence, "th");
+        builder.AddAttribute(sequence + 1, "scope", "col");
+        builder.AddContent(sequence + 2, title);
+        builder.CloseElement();
+    }
+
+    private string GetProcessorStatusText()
+    {
+        if (!snapshot.ProcessorRunning)
+            return "Parado";
+
+        return string.IsNullOrWhiteSpace(snapshot.CurrentMentionId)
+            ? "Aguardando"
+            : "Processando";
+    }
+
+    private string GetProcessorBadgeClass()
+    {
+        if (!snapshot.ProcessorRunning)
+            return "text-bg-secondary";
+
+        return string.IsNullOrWhiteSpace(snapshot.CurrentMentionId)
+            ? "text-bg-info"
+            : "text-bg-success";
+    }
+
+    private string GetCurrentMentionText()
+    {
+        if (string.IsNullOrWhiteSpace(snapshot.CurrentMentionId))
+            return "Nenhuma";
+
+        return $"{snapshot.CurrentMentionId} de {snapshot.CurrentMentionAuthorId}";
+    }
+
+    private static int GetUsagePercent(TwitterAPI.TwitterUsageSummary usage)
+    {
+        if (!usage.ProjectUsage.HasValue || !usage.ProjectCap.HasValue || usage.ProjectCap.Value <= 0)
+            return 0;
+
+        return Math.Clamp((int)Math.Round(usage.ProjectUsage.Value * 100m / usage.ProjectCap.Value), 0, 100);
+    }
+
+    private static string GetUsageProgressStyle(TwitterAPI.TwitterUsageSummary usage)
+    {
+        var percent = GetUsagePercent(usage);
+        if (percent <= 0)
+            return "width: 0%;";
+
+        return $"width: {Math.Clamp(percent, 4, 100)}%;";
+    }
+
+    private static string GetUsageProgressClass(TwitterAPI.TwitterUsageSummary usage)
+    {
+        var percent = GetUsagePercent(usage);
+        return percent switch
+        {
+            >= 95 => "bg-danger",
+            >= 80 => "bg-warning",
+            _ => "bg-success"
+        };
+    }
+
+    private static int GetMaxMetricValue(IReadOnlyList<DashboardMetric> metrics)
+    {
+        return Math.Max(1, metrics.Count == 0 ? 1 : metrics.Max(x => x.Value));
+    }
+
+    private static int GetRecentMentionsVersion(TwitterMentionsRuntimeSnapshot data)
+    {
+        return data.Stats.TotalProcessed + data.Stats.TotalSkipped + data.Stats.TotalErrors;
+    }
+
+    private static string GetBarStyle(int value, int maxValue)
+    {
+        if (value <= 0 || maxValue <= 0)
+            return "width: 0%;";
+
+        var width = Math.Clamp((int)Math.Round(value * 100m / maxValue), 4, 100);
+        return $"width: {width}%;";
+    }
+
+    private static string GetLevelClass(string level)
+    {
+        return level?.ToLowerInvariant() switch
+        {
+            "error" => "text-bg-danger",
+            "warning" => "text-bg-warning",
+            _ => "text-bg-info"
+        };
+    }
+
+    private static string FormatDate(DateTimeOffset? value)
+    {
+        return value.HasValue
+            ? value.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            : "-";
+    }
+
+    private static string FormatLong(long? value)
+    {
+        return value.HasValue
+            ? value.Value.ToString("N0", BrazilianCulture)
+            : "-";
+    }
+
+    private static string FormatText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string FormatCapResetDay(int? value)
+    {
+        return value.HasValue ? $"dia {value.Value}" : "-";
+    }
+
+    private static string GetMentionUrl(ProcessedMention mention)
+    {
+        if (!string.IsNullOrWhiteSpace(mention.MentionUrl))
+            return mention.MentionUrl;
+
+        return string.IsNullOrWhiteSpace(mention.TweetId)
+            ? "#"
+            : $"https://x.com/i/web/status/{mention.TweetId.Trim()}";
+    }
+
+    private static TwitterMentionsRuntimeStats EmptyStats()
+    {
+        return new TwitterMentionsRuntimeStats(
+            TotalFetched: 0,
+            TotalEnqueued: 0,
+            TotalDequeued: 0,
+            TotalProcessed: 0,
+            TotalSkipped: 0,
+            TotalErrors: 0,
+            UnauthorizedMentions: 0,
+            AgentReplies: 0,
+            HelpRequests: 0,
+            ScoreRequests: 0,
+            ScoreboardRequests: 0,
+            InviteRequests: 0,
+            InviteErrors: 0,
+            InvitesAccepted: 0,
+            InvitesRefused: 0,
+            UnknownCommands: 0,
+            ThreadArgumentAnalyses: 0,
+            ThreadFactChecks: 0,
+            ThreadFactTrue: 0,
+            ThreadFactFalse: 0,
+            ThreadFactUncertain: 0,
+            ThreadWhoIsRightAnalyses: 0,
+            DebateAuthorAWins: 0,
+            DebateAuthorBWins: 0,
+            DebateDraws: 0,
+            ResultCounts: new Dictionary<string, int>()
+        );
+    }
+
+    private sealed record DashboardCard(string Title, string Value, string Detail, string BadgeText, string BadgeCss);
+    private sealed record DashboardMetric(string Label, int Value, string CssClass);
+
+    private sealed class LlmHistoryView
+    {
+        public DateTimeOffset RequestedAtUtc { get; set; }
+        public string Model { get; set; } = string.Empty;
+        public int? PromptTokens { get; set; }
+        public int? CompletionTokens { get; set; }
+        public int? TotalTokens { get; set; }
+        public string LlmResult { get; set; } = string.Empty;
+        public bool Success { get; set; }
+        public string MentionText { get; set; } = string.Empty;
+        public string ResponseText { get; set; } = string.Empty;
+        public string MetadataJson { get; set; } = string.Empty;
+        public List<string> ConsultedNewsLinks { get; set; } = [];
+        public List<string> ProcessSteps { get; set; } = [];
+    }
+}

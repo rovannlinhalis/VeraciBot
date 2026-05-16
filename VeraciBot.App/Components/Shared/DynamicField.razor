@@ -1,0 +1,608 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using VeraciBot.App.Entities
+@using VeraciBot.App.Interfaces
+
+@implements IAsyncDisposable
+
+@inject IBlobStorageService BlobStorage
+@inject IJSRuntime JS
+
+@if (Field is not null)
+{
+    <div class="@FieldCssClass" title="@Field.Description">
+        @switch (Field.Type)
+        {
+            case EFieldType.System:
+                @FieldLabel()
+                @if (UseReadonlyTextarea)
+                {
+                    <textarea id="@FieldId"
+                              class="form-control dynamic-field-textarea dynamic-field-readonly-system"
+                              rows="@TextareaRows"
+                              readonly>@Field.Value</textarea>
+                }
+                else
+                {
+                    <input id="@FieldId"
+                           class="form-control dynamic-field-readonly-system"
+                           type="text"
+                           value="@Field.Value"
+                           readonly />
+                }
+                @FieldDescription()
+                break;
+
+            case EFieldType.YesNo:
+                <div class="form-check form-switch dynamic-field-switch">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="@FieldId"
+                           checked="@Field.BoolValue"
+                           @onchange="OnBoolChanged" />
+                    <label class="form-check-label" for="@FieldId">@DisplayName</label>
+                </div>
+                @FieldDescription()
+                break;
+
+            case EFieldType.Number:
+                @FieldLabel()
+                <input id="@FieldId"
+                       class="form-control"
+                       type="number"
+                       step="@DecimalStep"
+                       placeholder="@Field.PlaceHolder"
+                       value="@Field.Value"
+                       @oninput="OnInput" />
+                @FieldDescription()
+                break;
+
+            case EFieldType.Currency:
+                @FieldLabel()
+                <div class="input-group">
+                    <span class="input-group-text">R$</span>
+                    <input id="@FieldId"
+                           class="form-control"
+                           type="number"
+                           step="@DecimalStep"
+                           placeholder="@Field.PlaceHolder"
+                           value="@Field.Value"
+                           @oninput="OnInput" />
+                </div>
+                @FieldDescription()
+                break;
+
+            case EFieldType.MultilineText:
+            case EFieldType.Markdown:
+            case EFieldType.Json:
+                @FieldLabel()
+                <textarea id="@FieldId"
+                          class="form-control dynamic-field-textarea"
+                          rows="@TextareaRows"
+                          placeholder="@Field.PlaceHolder"
+                          value="@Field.Value"
+                          @oninput="OnInput"></textarea>
+                @FieldDescription()
+                break;
+
+            case EFieldType.Html:
+            case EFieldType.FormattedText:
+                @FieldLabel()
+                <textarea id="@FieldId"
+                          class="form-control dynamic-field-textarea dynamic-field-code"
+                          rows="@TextareaRows"
+                          placeholder="@Field.PlaceHolder"
+                          value="@Field.Value"
+                          @oninput="OnInput"></textarea>
+                @FieldDescription()
+                break;
+
+            case EFieldType.Options:
+            case EFieldType.Icon:
+                @FieldLabel()
+                <select id="@FieldId"
+                        class="form-select"
+                        value="@Field.Value"
+                        @onchange="OnInput">
+                    <option value="">Selecione...</option>
+                    @foreach (var option in Field.Options ?? [])
+                    {
+                        <option value="@GetOptionValue(option)">@GetOptionLabel(option)</option>
+                    }
+                </select>
+                @FieldDescription()
+                break;
+
+            case EFieldType.Password:
+                @FieldLabel()
+                <input id="@FieldId"
+                       class="form-control"
+                       type="password"
+                       autocomplete="new-password"
+                       placeholder="@Field.PlaceHolder"
+                       value="@Field.Value"
+                       @oninput="OnInput" />
+                @FieldDescription()
+                break;
+
+            case EFieldType.URL:
+                @FieldLabel()
+                <input id="@FieldId"
+                       class="form-control"
+                       type="url"
+                       placeholder="@(string.IsNullOrWhiteSpace(Field.PlaceHolder) ? "https://..." : Field.PlaceHolder)"
+                       value="@Field.Value"
+                       @oninput="OnInput" />
+                @FieldDescription()
+                break;
+
+            case EFieldType.ImageUrl:
+                @FieldLabel()
+                <div class="dynamic-image-field">
+                    <input id="@FieldId" name="@FieldId" type="hidden" value="@Field.Value" />
+
+                    <div id="@DropzoneId"
+                         @ref="imageDropzoneElement"
+                         class="dynamic-image-dropzone @(isUploading ? "is-uploading" : null)"
+                         role="group"
+                         tabindex="0"
+                         aria-label="Imagem @DisplayName">
+                        <div class="dynamic-image-canvas">
+                            @if (!string.IsNullOrWhiteSpace(ImagePreviewUrl) && !imageLoadFailed)
+                            {
+                                <img src="@ImagePreviewUrl"
+                                     alt="@DisplayName"
+                                     class="dynamic-image-preview"
+                                     @onerror="OnImagePreviewError" />
+                            }
+                            else
+                            {
+                                <div class="dynamic-image-placeholder">
+                                    <div class="dynamic-image-placeholder-title">@ImagePlaceholderText</div>
+                                    <div class="dynamic-image-placeholder-subtitle">Arraste uma imagem aqui</div>
+                                </div>
+                            }
+
+                            @if (isUploading)
+                            {
+                                <div class="dynamic-image-uploading">Enviando...</div>
+                            }
+
+                            <div class="dynamic-image-actions" aria-label="Acoes da imagem">
+                                <label class="btn btn-sm dynamic-image-action dynamic-image-action-primary @(isUploading ? "disabled" : null)"
+                                       for="@FileInputId"
+                                       aria-disabled="@isUploading">
+                                    Selecionar
+                                </label>
+                                <button type="button"
+                                        class="btn btn-sm dynamic-image-action dynamic-image-action-secondary"
+                                        disabled="@isUploading"
+                                        @onclick="PasteImageAsync">
+                                    Colar
+                                </button>
+                                @if (!string.IsNullOrWhiteSpace(Field.Value))
+                                {
+                                    <button type="button"
+                                            class="btn btn-sm dynamic-image-action dynamic-image-action-danger"
+                                            disabled="@isUploading"
+                                            @onclick="ClearImageAsync">
+                                        Remover
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <InputFile @key="imageInputVersion"
+                                   id="@FileInputId"
+                                   class="dynamic-image-file-input"
+                                   style="position:fixed;left:-100vw;top:-100vh;width:1px;height:1px;opacity:0;overflow:hidden;"
+                                   tabindex="-1"
+                                   aria-hidden="true"
+                                   OnChange="UploadImageAsync"
+                                   accept="image/*"
+                                   disabled="@isUploading" />
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(uploadError))
+                {
+                    <div class="text-danger small">@uploadError</div>
+                }
+                @FieldDescription()
+                break;
+
+            case EFieldType.Tokens:
+                @FieldLabel()
+                <div class="dynamic-token-list">
+                    @foreach (var token in Tokens)
+                    {
+                        <span class="badge text-bg-secondary dynamic-token">
+                            @token
+                            <button type="button" class="btn-close btn-close-white" aria-label="Remover" @onclick="() => RemoveTokenAsync(token)"></button>
+                        </span>
+                    }
+                </div>
+                <div class="input-group">
+                    <input class="form-control"
+                           placeholder="@(string.IsNullOrWhiteSpace(Field.PlaceHolder) ? "Adicionar..." : Field.PlaceHolder)"
+                           @bind="newToken"
+                           @bind:event="oninput"
+                           @onkeydown="OnTokenKeyDown" />
+                    <button type="button" class="btn btn-outline-secondary" @onclick="AddTokenAsync">Adicionar</button>
+                </div>
+                @FieldDescription()
+                break;
+
+            case EFieldType.Color:
+                @FieldLabel()
+                <div class="dynamic-color-field">
+                    <input class="form-control form-control-color"
+                           type="color"
+                           value="@ColorValue"
+                           @oninput="OnInput" />
+                    <input id="@FieldId"
+                           class="form-control"
+                           type="text"
+                           maxlength="7"
+                           placeholder="#FFFFFF"
+                           value="@Field.Value"
+                           @oninput="OnInput" />
+                </div>
+                @FieldDescription()
+                break;
+
+            case EFieldType.Computed:
+                @FieldLabel()
+                <input id="@FieldId"
+                       class="form-control"
+                       type="text"
+                       value="@Field.Value"
+                       readonly />
+                @FieldDescription()
+                break;
+
+            default:
+                @FieldLabel()
+                <input id="@FieldId"
+                       class="form-control"
+                       type="text"
+                       placeholder="@Field.PlaceHolder"
+                       value="@Field.Value"
+                       @oninput="OnInput" />
+                @FieldDescription()
+                break;
+        }
+    </div>
+}
+
+@code {
+    private const long MaxImageSize = 10 * 1024 * 1024;
+
+    private bool isUploading;
+    private bool imageInteropInitialized;
+    private bool imageLoadFailed;
+    private int imageInputVersion;
+    private ElementReference imageDropzoneElement;
+    private DotNetObjectReference<DynamicField> dotNetReference;
+    private string uploadError;
+    private string newToken = "";
+
+    [Parameter]
+    public VeraciBot.App.Entities.DynamicField Field { get; set; }
+
+    [Parameter]
+    public EventCallback<VeraciBot.App.Entities.DynamicField> FieldChanged { get; set; }
+
+    private string FieldId => $"field-{Field.Id}";
+    private string DisplayName => string.IsNullOrWhiteSpace(Field.Name) ? Field.Id : Field.Name;
+    private string FileInputId => $"{FieldId}-file";
+    private string DropzoneId => $"{FieldId}-dropzone";
+    private string FieldCssClass => $"dynamic-field dynamic-field-{Field.Size.ToString().ToLowerInvariant()}";
+    private int TextareaRows => Field.Height.HasValue && Field.Height.Value > 0 ? Math.Max(3, Field.Height.Value / 32) : Field.Type == EFieldType.MultilineText ? 3 : 6;
+    private bool UseReadonlyTextarea => Field.Type == EFieldType.System && !string.IsNullOrWhiteSpace(Field.Value) && Field.Value.Length > 96;
+    private string DecimalStep => Field.DecimalPlaces <= 0 ? "1" : "0." + new string('0', Math.Max(0, Field.DecimalPlaces - 1)) + "1";
+    private string ColorValue => IsHexColor(Field.Value) ? Field.Value : "#ffffff";
+    private string ImagePreviewUrl => NormalizeBrowserImageUrl(string.IsNullOrWhiteSpace(Field.FileUrl) ? Field.Value : Field.FileUrl);
+    private string ImagePlaceholderText => string.IsNullOrWhiteSpace(ImagePreviewUrl) ? "Sem imagem" : "Imagem nao encontrada";
+    private IEnumerable<string> Tokens => ParseTokens(Field.Value);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Field is not null && Field.Type == EFieldType.ImageUrl && !imageInteropInitialized)
+        {
+            dotNetReference ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("veraciBotDynamicImage.initializeImageDropzone", imageDropzoneElement, dotNetReference, MaxImageSize);
+            imageInteropInitialized = true;
+        }
+    }
+
+    private RenderFragment FieldLabel() => builder =>
+    {
+        builder.OpenElement(0, "label");
+        builder.AddAttribute(1, "class", "form-label");
+        builder.AddAttribute(2, "for", FieldId);
+        builder.AddContent(3, DisplayName);
+        builder.CloseElement();
+    };
+
+    private RenderFragment FieldDescription() => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(Field.Description))
+        {
+            return;
+        }
+
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "form-text");
+        builder.AddContent(2, Field.Description);
+        builder.CloseElement();
+    };
+
+    private async Task OnInput(ChangeEventArgs args)
+    {
+        await SetValueAsync(args.Value?.ToString() ?? "");
+    }
+
+    private async Task OnBoolChanged(ChangeEventArgs args)
+    {
+        Field.BoolValue = args.Value is bool value && value;
+        await NotifyChangedAsync();
+    }
+
+    private async Task SetValueAsync(string value)
+    {
+        Field.Value = value;
+        await NotifyChangedAsync();
+    }
+
+    private async Task NotifyChangedAsync()
+    {
+        if (FieldChanged.HasDelegate)
+        {
+            await FieldChanged.InvokeAsync(Field);
+        }
+    }
+
+    private async Task UploadImageAsync(InputFileChangeEventArgs args)
+    {
+        uploadError = null;
+        var file = args.File;
+
+        if (file is null)
+        {
+            return;
+        }
+
+        if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            uploadError = "Selecione um arquivo de imagem.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxImageSize);
+            await UploadImageStreamAsync(file.Name, file.ContentType, stream);
+        }
+        catch (IOException)
+        {
+            uploadError = "A imagem excede o limite de 10 MB.";
+        }
+        catch (Exception ex)
+        {
+            uploadError = $"Nao foi possivel enviar a imagem: {ex.Message}";
+        }
+    }
+
+    private async Task ClearImageAsync()
+    {
+        Field.Value = "";
+        Field.FileUrl = "";
+        imageLoadFailed = false;
+        await NotifyChangedAsync();
+    }
+
+    private void OnImagePreviewError()
+    {
+        imageLoadFailed = true;
+    }
+
+    private async Task PasteImageAsync()
+    {
+        uploadError = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("veraciBotDynamicImage.pasteFromClipboard", imageDropzoneElement, MaxImageSize);
+        }
+        catch (JSException ex)
+        {
+            uploadError = $"Nao foi possivel ler o clipboard: {ex.Message}";
+        }
+    }
+
+    [JSInvokable]
+    public async Task ReceiveBrowserImageErrorAsync(string message)
+    {
+        uploadError = message;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnTokenKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await AddTokenAsync();
+        }
+    }
+
+    private async Task AddTokenAsync()
+    {
+        var token = newToken?.Trim();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return;
+        }
+
+        var tokens = Tokens.ToList();
+        if (!tokens.Contains(token, StringComparer.OrdinalIgnoreCase))
+        {
+            tokens.Add(token);
+            Field.Value = string.Join(",", tokens);
+            await NotifyChangedAsync();
+        }
+
+        newToken = "";
+    }
+
+    private async Task RemoveTokenAsync(string token)
+    {
+        var tokens = Tokens
+            .Where(x => !string.Equals(x, token, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        Field.Value = string.Join(",", tokens);
+        await NotifyChangedAsync();
+    }
+
+    private static IEnumerable<string> ParseTokens(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static string GetOptionValue(string option)
+    {
+        var parts = SplitOption(option);
+        return parts.Value;
+    }
+
+    private static string GetOptionLabel(string option)
+    {
+        var parts = SplitOption(option);
+        return string.IsNullOrWhiteSpace(parts.Label) ? parts.Value : parts.Label;
+    }
+
+    private static (string Value, string Label) SplitOption(string option)
+    {
+        if (string.IsNullOrWhiteSpace(option))
+        {
+            return ("", "");
+        }
+
+        var separators = new[] { '|', ':' };
+        var index = option.IndexOfAny(separators);
+        return index < 0
+            ? (option, option)
+            : (option[..index], option[(index + 1)..]);
+    }
+
+    private static bool IsHexColor(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length != 7 || value[0] != '#')
+        {
+            return false;
+        }
+
+        return value.Skip(1).All(Uri.IsHexDigit);
+    }
+
+    private async Task UploadImageStreamAsync(string fileName, string contentType, Stream stream)
+    {
+        if (string.IsNullOrWhiteSpace(contentType) ||
+            !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            uploadError = "Selecione um arquivo de imagem.";
+            return;
+        }
+
+        try
+        {
+            isUploading = true;
+            await InvokeAsync(StateHasChanged);
+
+            var objectName = $"settings/{Field.Id}-{Guid.NewGuid():N}{GetImageExtension(fileName, contentType)}";
+            var upload = await BlobStorage.UploadFileAsync(objectName, stream, contentType);
+
+            Field.Value = upload.FilePath;
+            Field.FileUrl = upload.FileUrl;
+            imageLoadFailed = false;
+            await NotifyChangedAsync();
+        }
+        catch (IOException)
+        {
+            uploadError = "A imagem excede o limite de 10 MB.";
+        }
+        catch (Exception ex)
+        {
+            uploadError = $"Nao foi possivel enviar a imagem: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+            imageInputVersion++;
+        }
+    }
+
+    private static string GetImageExtension(string fileName, string contentType)
+    {
+        var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+        if (extension is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp")
+        {
+            return extension;
+        }
+
+        return contentType?.ToLowerInvariant() switch
+        {
+            "image/jpeg" => ".jpg",
+            "image/gif" => ".gif",
+            "image/webp" => ".webp",
+            "image/bmp" => ".bmp",
+            _ => ".png"
+        };
+    }
+
+    private static string NormalizeBrowserImageUrl(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || IsBrowserUrl(value))
+        {
+            return value;
+        }
+
+        return "/" + value.TrimStart('/');
+    }
+
+    private static bool IsBrowserUrl(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (value.StartsWith("/", StringComparison.Ordinal) ||
+            value.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("blob:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (imageInteropInitialized)
+            {
+                await JS.InvokeVoidAsync("veraciBotDynamicImage.disposeImageDropzone", imageDropzoneElement);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        dotNetReference?.Dispose();
+    }
+}
