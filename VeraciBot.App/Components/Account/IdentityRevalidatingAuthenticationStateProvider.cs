@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
-using VeraciBot.App.Entities;
+using VeraciBot.Core.Entities;
 
 namespace VeraciBot.App.Components.Account
 {

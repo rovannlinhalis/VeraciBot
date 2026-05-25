@@ -9,11 +9,13 @@ using VeraciBot.App.Auth;
 using VeraciBot.App.Components.Layout;
 using VeraciBot.App.Components.Account;
 using VeraciBot.App.Data;
-using VeraciBot.App.Entities;
-using VeraciBot.App.External;
-using VeraciBot.App.Interfaces;
-using VeraciBot.App.Services;
-using VeraciBot.App.Shared;
+using VeraciBot.Core.Entities;
+using VeraciBot.Infrastructure.Storage;
+using VeraciBot.Core.Shared;
+using VeraciBot.Application.External;
+using VeraciBot.Application.Services;
+using VeraciBot.Core.Interfaces;
+using VeraciBot.Core.Enums;
 
 namespace VeraciBot.App
 {

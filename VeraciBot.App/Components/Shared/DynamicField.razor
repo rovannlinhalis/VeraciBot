@@ -1,7 +1,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
-@using VeraciBot.App.Entities
-@using VeraciBot.App.Interfaces
+@using VeraciBot.Core.Interfaces
+@using VeraciBot.Core.Enums
 
 @implements IAsyncDisposable
 
@@ -287,10 +287,10 @@
     private string newToken = "";
 
     [Parameter]
-    public VeraciBot.App.Entities.DynamicField Field { get; set; }
+    public VeraciBot.Core.Entities.DynamicField Field { get; set; }
 
     [Parameter]
-    public EventCallback<VeraciBot.App.Entities.DynamicField> FieldChanged { get; set; }
+    public EventCallback<VeraciBot.Core.Entities.DynamicField> FieldChanged { get; set; }
 
     private string FieldId => $"field-{Field.Id}";
     private string DisplayName => string.IsNullOrWhiteSpace(Field.Name) ? Field.Id : Field.Name;

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Primitives;
 using System.Text.Json;
 using VeraciBot.App.Components.Account.Pages;
 using VeraciBot.App.Components.Account.Pages.Manage;
-using VeraciBot.App.Entities;
+using VeraciBot.Core.Entities;
 
 namespace Microsoft.AspNetCore.Routing
 {

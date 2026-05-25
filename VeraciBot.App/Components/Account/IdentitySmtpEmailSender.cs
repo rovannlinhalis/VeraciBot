@@ -2,8 +2,8 @@ using System.Net;
 using System.Net.Mail;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using VeraciBot.App.Entities;
-using VeraciBot.App.Services;
+using VeraciBot.Application.Services;
+using VeraciBot.Core.Entities;
 
 namespace VeraciBot.App.Components.Account
 {

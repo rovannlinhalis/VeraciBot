@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Globalization;
 using System.Security.Claims;
@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VeraciBot.App.Data;
-using VeraciBot.App.Entities;
+using VeraciBot.Application.Services;
+using VeraciBot.Core.Enums;
 
 namespace VeraciBot.App.Auth
 {
@@ -20,41 +21,14 @@ namespace VeraciBot.App.Auth
 
     public static class RolePolicies
     {
-        private const string Prefix = "ApplicationRole:";
-
         public static string For(params EApplicationRoles[] roles)
         {
-            return Prefix + string.Join(",", roles.Select(x => ((int)x).ToString(CultureInfo.InvariantCulture)));
+            return RolePolicyNameService.For(roles);
         }
 
         public static bool TryParse(string policyName, out EApplicationRoles[] roles)
         {
-            roles = [];
-
-            if (!policyName.StartsWith(Prefix, StringComparison.Ordinal))
-                return false;
-
-            var roleNames = policyName[Prefix.Length..]
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            roles = roleNames
-                .Select(ParseRole)
-                .Where(x => x.HasValue)
-                .Select(x => x!.Value)
-                .Distinct()
-                .ToArray();
-
-            return true;
-        }
-
-        private static EApplicationRoles? ParseRole(string value)
-        {
-            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numericRole))
-                return (EApplicationRoles)numericRole;
-
-            return Enum.TryParse<EApplicationRoles>(value, ignoreCase: true, out var namedRole)
-                ? namedRole
-                : null;
+            return RolePolicyNameService.TryParse(policyName, out roles);
         }
     }
 

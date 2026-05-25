@@ -169,7 +169,7 @@ namespace VeraciBot.App.Migrations
                     b.ToTable("AspNetRoles", (string)null);
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.ApplicationSettings", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.ApplicationSettings", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
@@ -266,7 +266,7 @@ namespace VeraciBot.App.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.AuthorizedTwitterUser", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.AuthorizedTwitterUser", b =>
                 {
                     b.Property<string>("AuthorId")
                         .HasColumnType("nvarchar(450)");
@@ -326,7 +326,7 @@ namespace VeraciBot.App.Migrations
                     b.ToTable("authorized_twitter_users", (string)null);
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.AuthorizedTwitterUserHistory", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.AuthorizedTwitterUserHistory", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -376,7 +376,7 @@ namespace VeraciBot.App.Migrations
                     b.ToTable("authorized_twitter_user_history", (string)null);
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.LlmRequestHistory", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.LlmRequestHistory", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -431,7 +431,7 @@ namespace VeraciBot.App.Migrations
                     b.ToTable("llm_request_history", (string)null);
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.ProcessedMention", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.ProcessedMention", b =>
                 {
                     b.Property<string>("TweetId")
                         .HasColumnType("nvarchar(450)");
@@ -465,7 +465,7 @@ namespace VeraciBot.App.Migrations
                     b.ToTable("processed_mentions", (string)null);
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.TwitterInvite", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.TwitterInvite", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -525,7 +525,7 @@ namespace VeraciBot.App.Migrations
                     b.ToTable("twitter_invites", (string)null);
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.TwitterInviteCreditTransaction", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.TwitterInviteCreditTransaction", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -618,9 +618,9 @@ namespace VeraciBot.App.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.LlmRequestHistory", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.LlmRequestHistory", b =>
                 {
-                    b.HasOne("VeraciBot.App.Entities.ProcessedMention", "ProcessedMention")
+                    b.HasOne("VeraciBot.Core.Entities.ProcessedMention", "ProcessedMention")
                         .WithMany("LlmRequests")
                         .HasForeignKey("ProcessedMentionTweetId")
                         .OnDelete(DeleteBehavior.Cascade);
@@ -650,7 +650,7 @@ namespace VeraciBot.App.Migrations
                     b.Navigation("UserRoles");
                 });
 
-            modelBuilder.Entity("VeraciBot.App.Entities.ProcessedMention", b =>
+            modelBuilder.Entity("VeraciBot.Core.Entities.ProcessedMention", b =>
                 {
                     b.Navigation("LlmRequests");
                 });

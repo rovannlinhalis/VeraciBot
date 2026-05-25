@@ -4,7 +4,7 @@
 @implements IDisposable
 
 @using Microsoft.AspNetCore.WebUtilities
-@using VeraciBot.App.Services
+@using VeraciBot.Core.Enums
 
 @inject ApplicationSettingsService SettingsService
 @inject TwitterBotAuthenticationService BotAuthenticationService
@@ -230,7 +230,7 @@ else
         await LoadAsync();
     }
 
-    private Task OnFieldChanged(VeraciBot.App.Entities.DynamicField field)
+    private Task OnFieldChanged(VeraciBot.Core.Entities.DynamicField field)
     {
         return Task.CompletedTask;
     }

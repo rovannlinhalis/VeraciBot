@@ -8,9 +8,9 @@
 @using Microsoft.AspNetCore.Components.Rendering
 @using Microsoft.EntityFrameworkCore
 @using VeraciBot.App.Data
-@using VeraciBot.App.Entities
-@using VeraciBot.App.External
-@using VeraciBot.App.Services
+@using VeraciBot.Core.Entities
+@using VeraciBot.Application.External
+@using VeraciBot.Core.Enums
 
 @inject TwitterMentionsRuntimeStore RuntimeStore
 @inject TwitterAPI TwitterApi
@@ -816,7 +816,7 @@
         return $"{snapshot.CurrentMentionId} de {snapshot.CurrentMentionAuthorId}";
     }
 
-    private static int GetUsagePercent(TwitterAPI.TwitterUsageSummary usage)
+    private static int GetUsagePercent(Application.External.TwitterAPI.TwitterUsageSummary usage)
     {
         if (!usage.ProjectUsage.HasValue || !usage.ProjectCap.HasValue || usage.ProjectCap.Value <= 0)
             return 0;

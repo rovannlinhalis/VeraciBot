@@ -1,3 +1,7 @@
 <Solution>
+  <Project Path="VeraciBot.Core/VeraciBot.Core.csproj" />
+  <Project Path="VeraciBot.Application/VeraciBot.Application.csproj" />
+  <Project Path="VeraciBot.Infrastructure/VeraciBot.Infrastructure.csproj" />
   <Project Path="VeraciBot.App/VeraciBot.App.csproj" />
+  <Project Path="VeraciBot.Tests/VeraciBot.Tests.csproj" />
 </Solution>

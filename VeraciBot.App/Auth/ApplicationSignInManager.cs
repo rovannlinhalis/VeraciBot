@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using VeraciBot.App.Entities;
+using VeraciBot.Core.Entities;
 
 namespace VeraciBot.App.Auth
 {

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using VeraciBot.App.Entities;
+using VeraciBot.Core.Entities;
 
 namespace VeraciBot.App.Components.Account
 {
