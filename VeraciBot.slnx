@@ -4,4 +4,5 @@
   <Project Path="VeraciBot.Infrastructure/VeraciBot.Infrastructure.csproj" />
   <Project Path="VeraciBot.App/VeraciBot.App.csproj" />
   <Project Path="VeraciBot.Tests/VeraciBot.Tests.csproj" />
+  <Project Path="VeraciBot.IntegrationTests/VeraciBot.IntegrationTests.csproj" />
 </Solution>
