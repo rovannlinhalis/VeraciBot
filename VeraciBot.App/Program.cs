@@ -61,9 +61,13 @@ namespace VeraciBot.App
                 ?? throw new InvalidOperationException(
                     "Connection string 'DefaultConnection' not found."
                 );
-            builder.Services.AddDbContext<ApplicationDbContext>(
-                options => options.UseSqlServer(connectionString)
-            );
+            builder.Services.AddDbContext<ApplicationDbContext>((options) =>
+            {
+                options.UseSqlServer(connectionString, sqlOptions => {
+                    sqlOptions.MigrationsAssembly("VeraciBot.Infrastructure");
+                });
+            });
+            
             AddConfiguredExternalAuthentication(builder.Services, builder.Configuration, connectionString);
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
