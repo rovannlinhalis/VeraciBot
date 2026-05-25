@@ -2,7 +2,7 @@ using FluentAssertions;
 using VeraciBot.Application.Services;
 using VeraciBot.Core.Enums;
 
-namespace VeraciBot.Tests.Core
+namespace VeraciBot.Tests.Application
 {
     public class RolePolicyNameServiceTests
     {

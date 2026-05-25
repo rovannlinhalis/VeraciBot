@@ -1,7 +1,7 @@
 using FluentAssertions;
 using VeraciBot.Application.External;
 
-namespace VeraciBot.Tests.Core
+namespace VeraciBot.Tests.Application
 {
     public class TwitterTextParserTests
     {
